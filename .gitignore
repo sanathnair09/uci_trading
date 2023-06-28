@@ -1,7 +1,9 @@
 .idea/*
 reports/*
 
+.DS_store
 .env
 api.py
 token
 brokers/temp.csv
+*.pyc
