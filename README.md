@@ -4,7 +4,7 @@
 
 This script was designed to help Prof Schwarz collected data variation in execution times between brokers and other necessary metrics
 
-The script was originally developed by Alyssa Moncrief but was overhauled and redeveloped by Sanath Nair
+The script was originally developed by [Alyssa Moncrief](https://www.linkedin.com/in/alyssa-moncrief/) but was overhauled and redeveloped by [Sanath Nair](https://www.linkedin.com/in/sanathnair09/)
 
 ## Getting Started
 
