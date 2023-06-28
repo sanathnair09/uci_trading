@@ -1,0 +1,7 @@
+.idea/*
+reports/*
+
+.env
+api.py
+token
+brokers/temp.csv
