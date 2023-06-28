@@ -188,8 +188,8 @@ def sell_stocks_after_crash(stock_list):
 
 if __name__ == "__main__":
     # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("11:59", 7, 3)
-    setup()
+    automated_trading("6:30", 7, 3)
+    # setup()
     # sell_stocks_after_crash([(45, 'PRTK'), (9, 'HEAR'), (3, 'SCHL'), (1, 'IFF')])
     pass
 
