@@ -17,6 +17,9 @@ class CustomChromeInstance:
         # Exclude the collection of enable-automation switches
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
+        prefs = {"credentials_enable_service": False,
+                 "profile.password_manager_enabled": False}
+        options.add_experimental_option("prefs", prefs)
         # Turn-off userAutomationExtension
         # options.add_experimental_option("useAutomationExtension", False)
         return webdriver.Chrome(options = options)
@@ -29,8 +32,11 @@ class CustomChromeInstance:
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         # Exclude the collection of enable-automation switches 
-        options.add_experimental_option("excludeSwitches", ["enable-automation"]) 
-        
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+        prefs = {"credentials_enable_service": False,
+                 "profile.password_manager_enabled": False}
+        options.add_experimental_option("prefs", prefs)
         # Turn-off userAutomationExtension 
         # options.add_experimental_option("useAutomationExtension", False) 
         self._driver = webdriver.Chrome(options=options)

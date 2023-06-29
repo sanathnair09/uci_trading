@@ -1,5 +1,6 @@
 .idea/*
 reports/*
+logs/*
 
 .DS_store
 .env
@@ -7,3 +8,4 @@ api.py
 token
 brokers/temp.csv
 *.pyc
+previous_program_info.json

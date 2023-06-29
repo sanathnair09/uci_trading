@@ -11,14 +11,14 @@ from utils.report import OrderType, StockData, ActionType, BrokerNames
 
 class Robinhood(Broker):
 
-    def _get_order_data(self, orderId: str):
+    def _get_order_data(self, orderId: str): # TODO: finish implementing
         res = []
         order_data = rh.get_stock_order_info(orderId)
         for execution in order_data["executions"]:
             res.append((
                 execution["price"],
                 execution["quantity"],
-                execution["rounded_notional"], # dollar amt
+                execution["rounded_notional"],  # dollar amt
                 execution["timestamp"],
                 execution["id"]
             ))
@@ -29,36 +29,30 @@ class Robinhood(Broker):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
-        res = self._limit_buy(sym, amount, round(float(pre_stock_data.ask) * 1.05, 2)) # 5% above actual price
+        res = self._limit_buy(sym, amount,
+                              round(float(pre_stock_data.ask) * 1.05, 2))  # 5% above actual price
 
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        order_data = self._get_order_data(res["id"])
-
-        for entry in order_data:
-            self._add_report(date, program_submitted, program_executed, entry[3], sym, ActionType.BUY,
-                             entry[1], entry[0], entry[2], pre_stock_data, post_stock_data, OrderType.LIMIT,
-                             False, entry[4], None, BrokerNames.RH)
+        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.BUY,
+                         None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         False, res["id"], None, BrokerNames.RH)
 
     def sell(self, sym: str, amount: int):
         date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
-        res = self._limit_sell(sym, amount, round(float(pre_stock_data.ask) * 0.95, 2)) # 5% below actual price
+        res = self._limit_sell(sym, amount,
+                               round(float(pre_stock_data.ask) * 0.95, 2))  # 5% below actual price
 
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        order_data = self._get_order_data(res["id"])
-
-        for entry in order_data:
-            self._add_report(date, program_submitted, program_executed, entry[3], sym,
-                             ActionType.BUY,
-                             entry[1], entry[0], entry[2], pre_stock_data, post_stock_data,
-                             OrderType.LIMIT,
-                             False, entry[4], None, BrokerNames.RH)
+        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.SELL,
+                         None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         False, res["id"], None, BrokerNames.RH)
 
     def _market_buy(self, sym: str, amount: int):
         return NotImplementedError
@@ -100,6 +94,7 @@ if __name__ == '__main__':
     r = Robinhood(Path("temp.csv"))
     r.login()
     r.buy("VRM", 1)
-    # time.sleep(5)
-    # r.sell("GRWG", 1)
+    time.sleep(5)
+    r.sell("VRM", 1)
+    r.save_report()
     # print(r._executed_trades)

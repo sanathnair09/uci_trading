@@ -131,7 +131,7 @@ class Schwab(Broker):
 if __name__ == '__main__':
     s = Schwab("temp.csv")
     s.login()
-    s.buy("VRM", 3)
+    s.buy("W", 1)
     time.sleep(3)
-    s.sell("VRM", 3)
+    s.sell("W", 1)
     s.save_report()

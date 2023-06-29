@@ -6,7 +6,8 @@ from pathlib import Path
 import schedule
 
 from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity
-from utils.misc import get_program_data, update_program_data, reset_program_data
+from utils.misc import get_program_data, update_program_data, reset_program_data, data_post_processing, \
+    generate_failure_log
 
 
 PROGRAM_INFO_FILE_PATH = "previous_program_info.json"
@@ -19,7 +20,7 @@ STOCK_LIST = [  # TODO: possible optimization with diff data structure
     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
     'CTMX', 'ERES', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
-    'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
+    'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX', # 60 CELC # ENER issue on fidelity
     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
     'VNDA', 'TDG', 'ICAD', 'LXRX', 'EW', 'AMP', 'MODN', 'NRG', 'FRBA', 'GIS',  # 90
@@ -34,7 +35,7 @@ STOCK_LIST_LEN = len(STOCK_LIST)
 
 def log_failure(stock, amount, broker):
     curr_time = datetime.datetime.now().strftime("%X:%f")
-    update_program_data(PROGRAM_INFO_FILE_PATH, "FAILURE_LOG", (stock, amount, curr_time),
+    update_program_data(PROGRAM_INFO_FILE_PATH, "FAILURE_LOG", (stock, amount, curr_time, broker),
                         is_list = True)
     update_program_data(PROGRAM_INFO_FILE_PATH, "FAILURE_COUNT",
                         get_program_data(PROGRAM_INFO_FILE_PATH, "FAILURE_COUNT") + 1)
@@ -95,12 +96,12 @@ def setup():
             elif key == PROGRAM_INFO_KEYS[4]:
                 update_program_data(PROGRAM_INFO_FILE_PATH, key, [])
 
-    reset_program_data(PROGRAM_INFO_FILE_PATH,
-                       [
-                           ("FAILURE_LOG", []),
-                           ("FAILURE_COUNT", 0),
-                           ("STATUS", "Buy"),
-                       ])
+    # reset_program_data(PROGRAM_INFO_FILE_PATH,
+    #                    [
+    #                        ("FAILURE_LOG", []),
+    #                        ("FAILURE_COUNT", 0),
+    #                        ("STATUS", "Buy"),
+    #                    ])
     # TODO: if crashed on sell resume by selling
 
     print("Creating report file...")
@@ -134,9 +135,10 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
     last_stock_name = get_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME")
     current_idx = (STOCK_LIST.index(
         last_stock_name) + 1) % STOCK_LIST_LEN
-    goal_idx = current_idx - 1  # previous stock
+    # goal_idx = (current_idx - 1) % STOCK_LIST_LEN # previous stock
     temp_counter = 20
     print(f"Curr Idx: {current_idx} {STOCK_LIST[current_idx]}")
+    # print(f"Goal Idx: {goal_idx} {STOCK_LIST[goal_idx]}")
 
     buy_time = datetime.datetime.strptime(start_time, "%H:%M")
     sell_time = buy_time + datetime.timedelta(minutes = time_between_buy_and_sell)
@@ -157,21 +159,24 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
 
         buy_time = sell_time + datetime.timedelta(minutes = time_between_groups)
         sell_time = buy_time + datetime.timedelta(minutes = time_between_buy_and_sell)
-        current_idx += 5
+        current_idx = (current_idx + 5) % STOCK_LIST_LEN
         temp_counter -= 1
+
+    print(f"Curr Idx: {current_idx} {STOCK_LIST[current_idx]}")
+    # print(f"Goal Idx: {goal_idx} {STOCK_LIST[goal_idx]}")
 
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 
-def sell_stocks_after_crash(stock_list):
+def manual_override(stock_list):
     """in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks"""
     report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
 
     brokers = [
-        TDAmeritrade(report_file),
-        Robinhood(report_file),
+        # TDAmeritrade(report_file),
+        # Robinhood(report_file),
         ETrade(report_file),
         # Fidelity(report_file),
         # Schwab(report_file)
@@ -182,14 +187,20 @@ def sell_stocks_after_crash(stock_list):
 
     for amount, stock in stock_list:
         for broker in brokers:
-            broker.sell(stock, amount)
+            broker.sell(stock, amount) # set whether you want to manually buy or sell
             broker.save_report()
 
 
 if __name__ == "__main__":
+    '''
+    stock market hours (PST): 6:30 - 1:00
+    '''
     # TODO: get stock status at beginning of day to check at end of day
-    automated_trading("6:30", 7, 3)
-    # setup()
-    # sell_stocks_after_crash([(45, 'PRTK'), (9, 'HEAR'), (3, 'SCHL'), (1, 'IFF')])
+    # automated_trading("9:35", 7, 3) # TODO: fidelity error handling
+    # TODO: CYAN stock below one dollar
+    # manual_override([
+    # ])
+    # data_post_processing("reports/report_06_29.csv")
+    # generate_failure_log()
     pass
 

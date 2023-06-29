@@ -134,8 +134,5 @@ class Fidelity(Broker):
 if __name__ == '__main__':
     a = Fidelity("temp.csv")
     a.login()
-    a.buy("VRM", 3)
-    time.sleep(5)
-    a.sell("VRM", 3)
+    a.buy("W", 2)
     a.save_report()
-    input()
