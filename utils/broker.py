@@ -12,8 +12,8 @@ class Broker(ABC):
             report_file = Path(report_file)
         self._report_file = report_file
         if not self._report_file.exists():
-            self._report_file.touch()
-            self._report_file.write_text("Date,Program Submitted,Program Executed,Broker Executed,Symbol,Action,No. of Shares,Price,Dollar Amt,Pre Ask,Pre Bid,Pre Quote,Pre Vol,Post Ask,Post Bid,Post Quote,Post Vol,Order Type,Split,Order ID,Activity ID,Broker\n")
+            self._report_file.touch() # TODO: if changing the columns of report file also modify here
+            self._report_file.write_text("Date,Program Submitted,Program Executed,Broker Executed,Symbol,Broker,Action,Size,Price,Dollar Amt,Pre Quote,Post Quote,Pre Bid,Pre Ask,Post Bid,Post Ask,Pre Volume,Post Volume,Order Type,Split,Order ID,Activity ID\n")
 
     @abstractmethod
     def login(self):
@@ -49,7 +49,7 @@ class Broker(ABC):
 
     def __handle_none_value(self, value):
         return " " if value is None else value
-    def _add_report(self, date: str, program_submitted: str, program_executed: str,
+    def _add_report(self, program_submitted: str, program_executed: str,
                     broker_executed: str, sym: str, action: ActionType, number_of_shares: int,
                     price: float, dollar_amt: float, pre_stock_data: StockData,
                     post_stock_data: StockData, order_type: OrderType, split: bool,
@@ -61,7 +61,7 @@ class Broker(ABC):
         #     args[key] = self.__handle_none_value(value)
         # print(locals())
         self._executed_trades.append(
-            ReportEntry(date, program_submitted, program_executed, broker_executed, sym,
+            ReportEntry(program_submitted, program_executed, broker_executed, sym,
                         action, number_of_shares, price,
                         dollar_amt, pre_stock_data, post_stock_data, order_type, split,
                         order_id, activity_id, broker))

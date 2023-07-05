@@ -22,7 +22,6 @@ class Schwab(Broker):
         pass
 
     def buy(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = TDAmeritrade.get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
         self._market_buy(sym, amount)
@@ -30,19 +29,18 @@ class Schwab(Broker):
         post_stock_data = TDAmeritrade.get_stock_data(sym)
 
 
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.BUY,
+        self._add_report( program_submitted, program_executed, None, sym, ActionType.BUY,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None, BrokerNames.SB)
 
     def sell(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = TDAmeritrade.get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
         self._market_sell(sym, amount)
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = TDAmeritrade.get_stock_data(sym)
 
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.SELL,
+        self._add_report( program_submitted, program_executed, None, sym, ActionType.SELL,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None, BrokerNames.SB)
 
@@ -86,7 +84,7 @@ class Schwab(Broker):
         amount_elem = self._chrome_inst.find(By.XPATH,
                                              '//*[@id="_txtQty"]')  # techincally uncessary since sell all will sell whatever was bought in the previous
         self._chrome_inst.sendKeyboardInput(amount_elem,
-                                            str(amount))  # however in the event that there was extras or something this only sells the ones we want
+                                            str(amount))  # however in the event that there were extras or something this only sells the ones we want
 
         # order_type_dropdown = Select(self._chrome_inst.find(By.XPATH, '//*[@id="order-type"]'))
         # order_type_dropdown.select_by_visible_text("Market")

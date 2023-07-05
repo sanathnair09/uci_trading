@@ -25,7 +25,6 @@ class Robinhood(Broker):
         return res
 
     def buy(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -35,12 +34,11 @@ class Robinhood(Broker):
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.BUY,
+        self._add_report( program_submitted, program_executed, None, sym, ActionType.BUY,
                          None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
                          False, res["id"], None, BrokerNames.RH)
 
     def sell(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -50,7 +48,7 @@ class Robinhood(Broker):
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.SELL,
+        self._add_report( program_submitted, program_executed, None, sym, ActionType.SELL,
                          None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
                          False, res["id"], None, BrokerNames.RH)
 

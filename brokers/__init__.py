@@ -35,3 +35,4 @@ from .robinhood import Robinhood
 from .etrade import ETrade
 from .schwab import Schwab
 from .fidelity import Fidelity
+from .ibkr import IBKR

@@ -80,6 +80,9 @@ class CustomChromeInstance:
     def scroll(self, amount):
         self._actions.scroll_by_amount(0, amount).perform()
 
+    def sendKeys(self, keys):
+        self._actions.send_keys(keys).perform()
+
 if __name__ == '__main__':
     inst = CustomChromeInstance()
     inst.open("https://stackoverflow.com/questions/37398301/json-dumps-format-python")

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 
@@ -19,7 +20,7 @@ class BrokerNames(Enum):
     ET = "ET"
     SB = "SB"
     FD = "FD"
-    IF = "IF" # IBKR free
+    IF = "IF"  # IBKR free
 
 
 @dataclass
@@ -32,9 +33,13 @@ class StockData:
     def __str__(self):
         return f"{self.ask},{self.bid},{self.quote},{self.volume}"
 
+
+def format_quote_data(pre: StockData, post: StockData):
+    return f"{pre.quote},{post.quote},{pre.bid},{pre.ask},{post.bid},{post.ask},{pre.volume},{post.volume}"
+
+
 @dataclass
 class ReportEntry:
-    date: str  # date of execution
     program_submitted: str  # time before placing order
     program_executed: str  # time after placing order
     broker_executed: str  # time executed according to broker info
@@ -52,13 +57,8 @@ class ReportEntry:
     activity_id: str
     broker: BrokerNames
 
-    ### MISC ###
-    # spy_quote: any
-    # qqq_quote: any
-
     def __str__(self):
-        return f"{self.date},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.action.value},{self.number_of_shares},{self.price},{self.dollar_amt},{self.pre_stock_data},{self.post_stock_data},{self.order_type.value},{self.split},{self.order_id},{self.activity_id},{self.broker.value}\n"
-
+        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.number_of_shares},{self.price},{self.dollar_amt},{format_quote_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.split},{self.order_id},{self.activity_id}\n"
 
 
 if __name__ == '__main__':

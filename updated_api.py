@@ -5,9 +5,10 @@ from pathlib import Path
 
 import schedule
 
-from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity
-from utils.misc import get_program_data, update_program_data, reset_program_data, data_post_processing, \
+from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
+from utils.misc import get_program_data, update_program_data, reset_program_data, \
     generate_failure_log
+from utils.post_processing import data_post_processing
 
 
 PROGRAM_INFO_FILE_PATH = "previous_program_info.json"
@@ -20,15 +21,15 @@ STOCK_LIST = [  # TODO: possible optimization with diff data structure
     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
     'CTMX', 'ERES', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
-    'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX', # 60 CELC # ENER issue on fidelity
+    'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
     'VNDA', 'TDG', 'ICAD', 'LXRX', 'EW', 'AMP', 'MODN', 'NRG', 'FRBA', 'GIS',  # 90
     'SCKT', 'AMC', 'KNDI', 'ATRA', 'KVSA', 'AVO', 'SMAP', 'PACK', 'NTAP', 'PLPC',  # 100 AAWW
     'GOOG', 'RM', 'APLS', 'ICCC', 'PROV', 'GEVO', 'RWOD', 'WMPN', 'AWR', 'DCTH',  # 110
-    'SXI', 'DHIL', 'CDNA', 'MMI', 'CYAN', 'GBCI', 'AAPL', 'SSNC', 'TCRX', 'OPK',  # 120
+    'SXI', 'DHIL', 'CDNA', 'MMI', 'CTIB', 'GBCI', 'AAPL', 'SSNC', 'TCRX', 'OPK',  # 120
     'FFIV', 'AGX', 'PTLO', 'LUNG', 'CPK', 'TACT', 'SIX', 'GS', 'PXLW', 'GWRE',  # 130 KNBE
-    'WBS', 'ALB', 'BACA'  # 133 'BYN' moved
+    'WBS', 'ALB', 'CCVI'  # 133 'BYN' moved
 ]
 STOCK_LIST_LEN = len(STOCK_LIST)
 
@@ -122,10 +123,9 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         Robinhood(report_file),
         ETrade(report_file),
         Fidelity(report_file),
+        # IBKR(report_file),
         Schwab(report_file)  # might have to keep schwab at end for selenium reasons
     ]
-
-    # brokers = [Schwab(report_file)]
 
     for broker in brokers:
         broker.login()
@@ -177,8 +177,9 @@ def manual_override(stock_list):
     brokers = [
         # TDAmeritrade(report_file),
         # Robinhood(report_file),
-        ETrade(report_file),
-        # Fidelity(report_file),
+        # ETrade(report_file),
+        Fidelity(report_file),
+        # IBKR(report_file),
         # Schwab(report_file)
     ]
 
@@ -187,20 +188,20 @@ def manual_override(stock_list):
 
     for amount, stock in stock_list:
         for broker in brokers:
-            broker.sell(stock, amount) # set whether you want to manually buy or sell
+            broker.sell(stock, amount)  # set whether you want to manually buy or sell
             broker.save_report()
 
 
 if __name__ == "__main__":
-    '''
+    """
     stock market hours (PST): 6:30 - 1:00
-    '''
+    """
     # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("9:35", 7, 3) # TODO: fidelity error handling
+    # automated_trading("12:23", 7, 3) # TODO: fidelity error handling
     # TODO: CYAN stock below one dollar
     # manual_override([
+
     # ])
-    # data_post_processing("reports/report_06_29.csv")
+    data_post_processing(f"reports/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
     # generate_failure_log()
     pass
-

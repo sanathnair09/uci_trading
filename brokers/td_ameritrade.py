@@ -59,7 +59,6 @@ class TDAmeritrade(Broker):
 
     def buy(self, sym: str, amount: int):
         ### PRE BUY INFO ###
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -80,7 +79,7 @@ class TDAmeritrade(Broker):
             broker_executed = TD_ct_hour + TD_ct[2:-5]
 
             # TODO: get report info properly
-            self._add_report(date, program_submitted, program_executed, broker_executed, sym,
+            self._add_report(program_submitted, program_executed, broker_executed, sym,
                              ActionType.BUY,
                              activity["quantity"], activity["executionLegs"][0]['price'],
                              activity["quantity"] * activity["executionLegs"][0]['price'],
@@ -90,7 +89,6 @@ class TDAmeritrade(Broker):
 
     def sell(self, sym: str, amount: int):
         ### PRE BUY INFO ###
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -110,7 +108,7 @@ class TDAmeritrade(Broker):
                 TD_ct_hour = "0" + TD_ct_hour
             broker_executed = TD_ct_hour + TD_ct[2:-5]
 
-            self._add_report(date, program_submitted, program_executed, broker_executed, sym,
+            self._add_report(program_submitted, program_executed, broker_executed, sym,
                              ActionType.SELL,
                              activity["quantity"], activity["executionLegs"][0]['price'],
                              activity["quantity"] * activity["executionLegs"][0]['price'],
@@ -134,7 +132,7 @@ class TDAmeritrade(Broker):
 if __name__ == '__main__':
     td = TDAmeritrade(Path("temp.csv"))
     # td.login()
-    # td._add_report(datetime.now().strftime('%x'), datetime.now().strftime("%X:%f"),
+    # td._add_report(get_current_date(), datetime.now().strftime("%X:%f"),
     #                datetime.now().strftime("%X:%f"), datetime.now().strftime("%X:%f"), "AAPL",
     #                ActionType.SELL,
     #                1, 178.12, 178.12, StockData(1, 1, 1, 1), StockData(-1, -1, -1, -1),

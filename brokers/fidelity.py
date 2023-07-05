@@ -1,11 +1,12 @@
 import time
 from datetime import datetime
 
+from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 
 from brokers import FIDELITY_LOGIN, FIDELITY_PASSWORD, TDAmeritrade
 from utils.broker import Broker
-from utils.report import BrokerNames, OrderType, ActionType
+from utils.report import BrokerNames, OrderType, ActionType, StockData
 from utils.selenium_helper import CustomChromeInstance
 from selenium.webdriver.common.by import By
 
@@ -26,32 +27,53 @@ class Fidelity(Broker):
         time.sleep(5)  # will have to play with time depending on your internet speeds
         self._chrome_inst.open(
             "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+        time.sleep(1)
 
     def _get_stock_data(self, sym: str):
-        pass
+        symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
+        self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
+        symbol_elem.send_keys(Keys.RETURN)
+
+        time.sleep(1)
+
+        bid_price = self._chrome_inst.find(By.XPATH,
+                                           '//*[@id="quote-panel"]/div/div[2]/div[1]/div/span/span').text
+
+        ask_price = self._chrome_inst.find(By.XPATH,
+                                           '//*[@id="quote-panel"]/div/div[2]/div[2]/div/span/span').text
+
+        volume = self._chrome_inst.find(By.XPATH,
+                                        '//*[@id="quote-panel"]/div/div[2]/div[3]/div/span').text.replace(
+            ",", "")
+        try:
+            quote = self._chrome_inst.find(By.XPATH, '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
+        except NoSuchElementException:
+            self._chrome_inst.find(By.ID, 'ett-more-less-quote-link').click()
+            time.sleep(0.5)
+            quote = self._chrome_inst.find(By.XPATH,
+                                       '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
+
+        return StockData(float(ask_price), float(bid_price), float(quote[1:]), float(volume))
 
     def buy(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
-        pre_stock_data = TDAmeritrade.get_stock_data(sym)
+        pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
         self._market_buy(sym, amount)
         program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = TDAmeritrade.get_stock_data(sym)
+        post_stock_data = self._get_stock_data(sym)
 
-
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.BUY,
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None, BrokerNames.FD)
 
     def sell(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
-        pre_stock_data = TDAmeritrade.get_stock_data(sym)
+        pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
         self._market_sell(sym, amount)
         program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = TDAmeritrade.get_stock_data(sym)
+        post_stock_data = self._get_stock_data(sym)
 
-        self._add_report(date, program_submitted, program_executed, None, sym, ActionType.SELL,
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None, BrokerNames.FD)
 
@@ -59,7 +81,8 @@ class Fidelity(Broker):
     #     return self._chrome_inst.find(By.XPATH, '/html/body/div[3]/ap122489-ett-component/div/order-entry-base/div/div/div[2]/equity-order-routing/order-confirm/div/div/order-received/div/div/div/div[3]').text
 
     def _place_new_order(self):
-        place_new_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket__enter-new-order")
+        place_new_order_btn = self._chrome_inst.waitForElementToLoad(By.ID,
+                                                                     "eq-ticket__enter-new-order")
         place_new_order_btn.click()
 
     def _market_buy(self, sym: str, amount: int):
@@ -74,6 +97,7 @@ class Fidelity(Broker):
 
         amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="eqt-shared-quantity"]')
         self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
+        # amount_elem.send_keys(Keys.RETURN)
 
         market_elem = self._chrome_inst.find(By.ID, "market-yes")
         market_elem.click()
@@ -81,17 +105,15 @@ class Fidelity(Broker):
         preview_btn = self._chrome_inst.find(By.ID, "previewOrderBtn")
         preview_btn.click()
 
-        time.sleep(3)
+        time.sleep(2)
 
-        place_order_btn = self._chrome_inst.find(By.ID, "placeOrderBtn")
+        self._check_error_msg(sym, amount, ActionType.BUY)
+
+        place_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "placeOrderBtn")
         place_order_btn.click()
-
-        # order_num = self._get_order_num()
 
         self._place_new_order()
         # return order_num
-
-
 
     def _market_sell(self, sym: str, amount: int):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
@@ -112,7 +134,9 @@ class Fidelity(Broker):
         preview_btn = self._chrome_inst.find(By.ID, "previewOrderBtn")
         preview_btn.click()
 
-        time.sleep(3)
+        time.sleep(2)
+
+        self._check_error_msg(sym, amount, ActionType.SELL)
 
         place_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "placeOrderBtn")
         place_order_btn.click()
@@ -122,17 +146,28 @@ class Fidelity(Broker):
         self._place_new_order()
         # return order_num
 
+    def _check_error_msg(self, sym, amount, action: ActionType):
+        try:
+            self._chrome_inst.find(By.XPATH,
+                                   "/html/body/div[3]/ap122489-ett-component/div/pvd3-modal[1]/s-root/div/div[2]/div/button")
+            elem = self._chrome_inst.find(By.XPATH, '/html/body/div[3]/ap122489-ett-component/div/pvd3-modal[1]/s-root/div/div[2]/div/button')
+            if elem.is_displayed():
+                elem.click()
+                raise ValueError(f'Fidelity {action.value} Error: {sym} - {amount}')
+        except NoSuchElementException:  # no errors on fidelity
+            pass
+
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
 
     def _limit_sell(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
 
-    
-
 
 if __name__ == '__main__':
     a = Fidelity("temp.csv")
     a.login()
-    a.buy("W", 2)
-    a.save_report()
+    # time.sleep(3)
+    # a.sell("VRM", 1)
+    # a.save_report()
+

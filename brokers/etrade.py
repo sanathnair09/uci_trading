@@ -6,8 +6,8 @@ from random import randint
 
 import pyetrade
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 from brokers import ETRADE_CONSUMER_KEY, ETRADE_CONSUMER_SECRET, ETRADE_LOGIN, ETRADE_PASSWORD, \
     ETRADE_ACCOUNT_ID
@@ -28,6 +28,12 @@ class ETrade(Broker):
         self._orders = None
 
     def login(self):
+        """
+        Possible instability with automated token collection.
+        Sometimes the XPATH for line 54 changes so if you notice that it is asking you to manually verify
+        add an input statement on line 53 and then check the XPATH and change if needed.
+        :return:
+        """
         chrome_inst = CustomChromeInstance.createInstance()
         tokens = {}
         try:
@@ -47,7 +53,7 @@ class ETrade(Broker):
             chrome_inst.find_element(By.ID, "logon_button").click()
             button = WebDriverWait(chrome_inst, 5).until(
                 EC.presence_of_element_located(
-                    (By.XPATH, "/html/body/div[2]/div/div[2]/form/input[3]"))
+                    (By.XPATH, "/html/body/div[2]/div/div[3]/form/input[3]"))
             )
             button.click()
 
@@ -56,9 +62,9 @@ class ETrade(Broker):
                     (By.XPATH, "/html/body/div[2]/div/div/input"))
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
-        except:
+        except Exception:
             chrome_inst.quit()
-            print("Error logging in automatically. Trying Manually...")
+            print("Error logging in automatically. Trying Manually...", e)
             oauth = pyetrade.ETradeOAuth(ETRADE_CONSUMER_KEY,
                                          ETRADE_CONSUMER_SECRET)
             print(oauth.get_request_token())  # Use the printed URL
@@ -88,6 +94,16 @@ class ETrade(Broker):
         return StockData(float(quote['All']['ask']), float(quote['All']['bid']),
                          float(quote['All']['lastTrade']), float(quote['All']['totalVolume']))
 
+    def get_order_data(self, sym: list[str], orderId):
+        """
+        in the event the program gave you incorrect data you can manually query etrade for the data using this method
+        """
+        data = self._orders.list_orders(account_id_key = ETRADE_ACCOUNT_ID, resp_format = "json",
+                                       symbol = sym)["OrdersResponse"]["Order"]
+        for entry in data:
+            if entry["orderId"] == orderId:
+                print(entry)
+
     def _get_latest_order(self) -> _ETradeOrderInfo:
         """
         ETrade API: https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/OrdersResponse
@@ -103,7 +119,6 @@ class ETrade(Broker):
         return _ETradeOrderInfo(order_data["placedTime"], quantity, price, dollar_amt, orderId)
 
     def buy(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -116,13 +131,12 @@ class ETrade(Broker):
 
         order_data = self._get_latest_order()
 
-        self._add_report(date, program_submitted, program_executed, order_data.broker_executed, sym,
+        self._add_report(program_submitted, program_executed, order_data.broker_executed, sym,
                          ActionType.BUY, order_data.quantity, order_data.price,
                          order_data.dollar_amt, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, order_data.orderId, None, BrokerNames.ET)
 
     def sell(self, sym: str, amount: int):
-        date = datetime.now().strftime('%x')
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
@@ -135,7 +149,7 @@ class ETrade(Broker):
 
         order_data = self._get_latest_order()
 
-        self._add_report(date, program_submitted, program_executed, order_data.broker_executed, sym,
+        self._add_report(program_submitted, program_executed, order_data.broker_executed, sym,
                          ActionType.SELL, order_data.quantity, order_data.price,
                          order_data.dollar_amt, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, order_data.orderId, None, BrokerNames.ET)
@@ -161,15 +175,12 @@ class ETrade(Broker):
     def _limit_sell(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
 
-    
-
 
 if __name__ == '__main__':
     e = ETrade(Path("temp.csv"))
     e.login()
-    e.buy("GRWG", 1)
-    time.sleep(5)
-    e.sell("GRWG", 1)
-    e.save_report()
+    e.get_order_data("AAP", 38873)
+    e.get_order_data("PANW", 38874)
+
     # e.sell("VRM", 1)
     # print(e._executed_trades)
