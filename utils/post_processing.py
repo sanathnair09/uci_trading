@@ -48,7 +48,7 @@ def calculate_rounded_price(price):
 
 
 def data_post_processing(report_file: str):
-    print("File: ", f"reports/report_{datetime.now().strftime('%m_%d')}.csv")
+    print("File: ", report_file)
 
     start = time.time()
 
@@ -95,6 +95,9 @@ def data_post_processing(report_file: str):
 
     end = time.time()
     print(end - start)
+
+    ### Report Summary
+    print(f"Number of Trades: {len(df['Symbol'].unique())}")
 
 
 if __name__ == '__main__':
