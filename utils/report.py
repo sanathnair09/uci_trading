@@ -18,6 +18,7 @@ class BrokerNames(Enum):
     TD = "TD"
     RH = "RH"
     ET = "ET"
+    E2 = "E2"
     SB = "SB"
     FD = "FD"
     IF = "IF"  # IBKR free

@@ -10,21 +10,28 @@ from brokers import RH_LOGIN, RH_PASSWORD
 
 
 def convert_int64_utc_to_pst(int64):
-    utc_datetime = datetime.utcfromtimestamp(float(int64) / 1000)
-    now_aware = utc.localize(utc_datetime)
-    pst = now_aware.astimezone(timezone("US/Pacific"))
-    return pst.strftime("%H:%M:%S")
+    try:
+        utc_datetime = datetime.utcfromtimestamp(float(int64) / 1000)
+        now_aware = utc.localize(utc_datetime)
+        pst = now_aware.astimezone(timezone("US/Pacific"))
+        return pst.strftime("%H:%M:%S")
+    except:
+        return int64
 
 
 def get_robinhood_data(row):
     order_data = rh.get_stock_order_info(row["Order ID"])
-    utc_time = datetime.strptime(order_data["executions"][0]["timestamp"],
-                                 "%Y-%m-%dT%H:%M:%S.%fZ")
+    try:
+        utc_time = datetime.strptime(order_data["executions"][0]["timestamp"],
+                                     "%Y-%m-%dT%H:%M:%S.%fZ")
+    except:
+        utc_time = datetime.strptime(order_data["executions"][0]["timestamp"],
+                                     "%Y-%m-%dT%H:%M:%SZ")
     now_aware = utc.localize(utc_time)
     pst = now_aware.astimezone(timezone("US/Pacific"))
     row["Broker Executed"] = pst.strftime("%I:%M:%S")
     row["Price"] = float(order_data["average_price"])
-    row["No. of Shares"] = float(order_data["cumulative_quantity"])
+    row["Size"] = float(order_data["cumulative_quantity"])
     row["Dollar Amt"] = float(order_data["total_notional"]["amount"])
     return row
 
@@ -64,6 +71,9 @@ def data_post_processing(report_file: str):
     df.loc[df['Broker'] == "ET", 'Broker Executed'] = df.loc[
         df['Broker'] == "ET", 'Broker Executed'].apply(
         lambda int64_time: convert_int64_utc_to_pst(int64_time))
+    df.loc[df['Broker'] == "E2", 'Broker Executed'] = df.loc[
+        df['Broker'] == "E2", 'Broker Executed'].apply(
+        lambda int64_time: convert_int64_utc_to_pst(int64_time))
 
     # calculate misc
     price_idx = df.columns.get_loc("Price")
@@ -78,7 +88,6 @@ def data_post_processing(report_file: str):
     df = df.astype({"Size": int})
     df["Size"] = df["Size"].replace(0, '')
 
-
     # time formatting - add text columns next to numeric time
     program_submitted_idx = df.columns.get_loc("Program Submitted")
     df.insert(program_submitted_idx + 1, "Program Submitted Text", "")
@@ -91,7 +100,8 @@ def data_post_processing(report_file: str):
 
     df = df.apply(format_execution_times, axis = 1)
 
-    df.to_csv(f"reports/report_{datetime.now().strftime('%m_%d')}_filtered.csv", index = False)
+    filtered_filename = report_file[:report_file.find(".")] + "_filtered.csv"
+    df.to_csv(filtered_filename, index = False)
 
     end = time.time()
     print(end - start)
@@ -101,5 +111,4 @@ def data_post_processing(report_file: str):
 
 
 if __name__ == '__main__':
-    # data_post_processing("../reports/report_06_30.csv")
     pass

@@ -1,0 +1,3 @@
+class BrokerError(Exception):
+    pass
+

@@ -6,21 +6,21 @@ from pathlib import Path
 import schedule
 
 from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
-from utils.misc import get_program_data, update_program_data, reset_program_data, \
-    generate_failure_log
+from utils.misc import get_program_data, update_program_data, reset_program_data
 from utils.post_processing import data_post_processing
+from utils.report import BrokerNames
 
 
 PROGRAM_INFO_FILE_PATH = "previous_program_info.json"
 PROGRAM_INFO_KEYS = ["PREVIOUS_STOCK_NAME", "STATUS", "FAILURE_LOG",
-                     "FAILURE_COUNT", "CURRENTLY_TRADING_STOCKS"]
+                     "FAILURE_COUNT", "CURRENTLY_TRADING_STOCKS", "FIRST_RUN"]
 
 STOCK_LIST = [  # TODO: possible optimization with diff data structure
     'UNF', 'WH', 'ODFL', 'NOTV', 'GRWG', 'RAPT', 'WTFC', 'CAPR', 'XOM', 'OPRT', 'BYN',  # 10
     'SHLS', 'AGL', 'BATL', 'PRTK', 'HEAR', 'SCHL', 'IFF', 'EDUC', 'AAP', 'PANW',  # 20
     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
-    'CTMX', 'ERES', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
+    'CTMX', 'NETC', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
     'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
@@ -48,15 +48,15 @@ def buy_across_brokers(brokers, stock_list):
     update_program_data(PROGRAM_INFO_FILE_PATH, "CURRENTLY_TRADING_STOCKS", stock_list)
     print(f"Currently Buying: {str(stock_list)}")
     for amount, stock in stock_list:
-        for broker in brokers:
-            try:
-                broker.buy(stock, amount)
-                broker.save_report()
-            except Exception as e:
-                print(f"Error buying {amount} '{stock}' stocks: {e}")
-                log_failure(stock, amount, broker.name())
+        for group in brokers:
+            for broker in group:
+                try:
+                    broker.buy(stock, amount)
+                    broker.save_report()
+                except Exception as e:
+                    print(f"Error buying {amount} '{stock}' stocks: {e}")
+                    log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
-
     print("Done Buying...")
 
 
@@ -65,13 +65,14 @@ def sell_across_brokers(brokers, stock_list):
     stock_list = get_program_data(PROGRAM_INFO_FILE_PATH, "CURRENTLY_TRADING_STOCKS")
     print(f"Currently Selling: {str(stock_list)}")
     for amount, stock in stock_list:
-        for broker in brokers:
-            try:
-                broker.sell(stock, amount)
-                broker.save_report()
-            except Exception as e:
-                print(f"Error selling {amount} '{stock}' stocks: {e}")
-                log_failure(stock, amount, broker.name())
+        for group in brokers:
+            for broker in group:
+                try:
+                    broker.sell(stock, amount)
+                    broker.save_report()
+                except Exception as e:
+                    print(f"Error selling {amount} '{stock}' stocks: {e}")
+                    log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
     print("Done Selling...")
 
@@ -96,13 +97,18 @@ def setup():
                 update_program_data(PROGRAM_INFO_FILE_PATH, key, [])
             elif key == PROGRAM_INFO_KEYS[4]:
                 update_program_data(PROGRAM_INFO_FILE_PATH, key, [])
+            elif key == PROGRAM_INFO_KEYS[5]:
+                update_program_data(PROGRAM_INFO_FILE_PATH, key, True)
+    if get_program_data(PROGRAM_INFO_FILE_PATH, "FIRST_RUN"):
+        reset_program_data(PROGRAM_INFO_FILE_PATH,
+                           [
+                               ("FAILURE_LOG", []),
+                               ("FAILURE_COUNT", 0),
+                               ("STATUS", "Buy"),
+                               ("CURRENTLY_TRADING_STOCKS", []),
+                           ])
+        update_program_data(PROGRAM_INFO_FILE_PATH, "FIRST_RUN", False)
 
-    # reset_program_data(PROGRAM_INFO_FILE_PATH,
-    #                    [
-    #                        ("FAILURE_LOG", []),
-    #                        ("FAILURE_COUNT", 0),
-    #                        ("STATUS", "Buy"),
-    #                    ])
     # TODO: if crashed on sell resume by selling
 
     print("Creating report file...")
@@ -118,17 +124,22 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
                       time_between_groups: float):
     report_file = setup()
 
+    # might have to keep schwab at end for selenium reasons
     brokers = [
-        TDAmeritrade(report_file),
-        Robinhood(report_file),
-        ETrade(report_file),
-        Fidelity(report_file),
-        # IBKR(report_file),
-        Schwab(report_file)  # might have to keep schwab at end for selenium reasons
+        [TDAmeritrade(report_file, BrokerNames.TD), ],
+        [Robinhood(report_file, BrokerNames.RH), ],
+        [
+            ETrade(report_file, BrokerNames.ET),
+            ETrade(report_file, BrokerNames.E2),
+        ],
+        [Fidelity(report_file, BrokerNames.FD), ],
+        # [IBKR(report_file, BrokerNames.IB),],
+        [Schwab(report_file, BrokerNames.SB)],
     ]
 
-    for broker in brokers:
-        broker.login()
+    for group in brokers:
+        for broker in group:
+            broker.login()
 
     print("Finished Logging into all brokers...")
 
@@ -149,6 +160,8 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         print(f"Selling at: {sell_time.strftime('%H:%M')}")
 
         random.shuffle(brokers)
+        for group in brokers:
+            random.shuffle(group)
 
         schedule.every().day.at(buy_time.strftime("%H:%M")).do(buy_across_brokers,
                                                                brokers = brokers,
@@ -170,26 +183,65 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         time.sleep(1)
 
 
-def manual_override(stock_list):
+def manual_override(stock_list: list[tuple[int, str]]):
     """in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks"""
     report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
 
     brokers = [
-        # TDAmeritrade(report_file),
-        # Robinhood(report_file),
-        ETrade(report_file),
-        # Fidelity(report_file),
-        # IBKR(report_file),
-        # Schwab(report_file)
+        # TDAmeritrade(report_file, BrokerNames.TD),
+        # Robinhood(report_file, BrokerNames.RH),
+        ETrade(report_file, BrokerNames.ET),
+        # ETrade(report_file, BrokerNames.E2),
+        # Fidelity(report_file, BrokerNames.FD),
+        # IBKR(report_file, BrokerNames.IB),
+        # Schwab(report_file, BrokerNames.SB)
     ]
 
     for broker in brokers:
+
         broker.login()
 
     for amount, stock in stock_list:
         for broker in brokers:
-            broker.sell(stock, amount)  # set whether you want to manually buy or sell
-            broker.save_report()
+            try:
+                broker.sell(stock, amount)
+                broker.save_report()
+            except Exception as e:
+                print(f"Error selling {amount} '{stock}' stocks: {e}")
+
+
+def sell_leftover_positions():
+    report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
+
+    brokers = [
+        [TDAmeritrade(report_file, BrokerNames.TD), ],
+        [Robinhood(report_file, BrokerNames.RH), ],
+        [
+            ETrade(report_file, BrokerNames.ET),
+            ETrade(report_file, BrokerNames.E2),
+        ],
+        # [Fidelity(report_file, BrokerNames.FD), ],
+        # [IBKR(report_file, BrokerNames.IB),],
+        # [Schwab(report_file, BrokerNames.SB)],
+    ]
+
+    for group in brokers:
+        for broker in group:
+            broker.login()
+
+
+    for group in brokers:
+        print(group)
+        for broker in group:
+            try:
+                leftover = broker.get_current_positions()
+                to_sell = [(sym, amount) for sym, amount in leftover if sym in STOCK_LIST]
+                print(broker.name(), to_sell)
+                for sym, amount in to_sell:
+                    broker.sell(sym, amount)
+                    broker.save_report()
+            except Exception as e:
+                print(broker.name(), e)
 
 
 if __name__ == "__main__":
@@ -197,11 +249,9 @@ if __name__ == "__main__":
     stock market hours (PST): 6:30 - 1:00
     """
     # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("10:53", 7, 3) # TODO: fidelity error handling
-    # TODO: CYAN stock below one dollar
+    # automated_trading("10:06", 7, 3)
+    # sell_leftover_positions()
     # manual_override([
-    #
     # ])
     data_post_processing(f"reports/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
-    # generate_failure_log()
     pass

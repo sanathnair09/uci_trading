@@ -14,10 +14,11 @@ from utils.report import OrderType, ActionType, BrokerNames
 
 
 class Schwab(Broker):
-    def __init__(self, report_file: Union[Path, str]) -> None:
-        super().__init__(report_file)
+    def __init__(self, report_file: Path, broker_name: BrokerNames):
+        super().__init__(report_file, broker_name)
         self._chrome_inst = CustomChromeInstance()
         self._chrome_inst.open("https://client.schwab.com/Login/SignOn/CustomerCenterLogin.aspx")
+
     def _get_stock_data(self, sym: str):
         pass
 
@@ -28,10 +29,9 @@ class Schwab(Broker):
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = TDAmeritrade.get_stock_data(sym)
 
-
-        self._add_report( program_submitted, program_executed, None, sym, ActionType.BUY,
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None, BrokerNames.SB)
+                         False, None, None)
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = TDAmeritrade.get_stock_data(sym)
@@ -40,12 +40,11 @@ class Schwab(Broker):
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = TDAmeritrade.get_stock_data(sym)
 
-        self._add_report( program_submitted, program_executed, None, sym, ActionType.SELL,
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None, BrokerNames.SB)
+                         False, None, None)
 
     def _market_buy(self, sym: str, amount: int):
-
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
@@ -56,7 +55,7 @@ class Schwab(Broker):
         # order_type_dropdown = Select(self._chrome_inst.find(By.XPATH, '//*[@id="order-type"]'))
         # order_type_dropdown.select_by_visible_text("Market")
 
-        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtQty"]')
+        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="inputqtyundefined-stepper-input"]')
         self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
 
         self._chrome_inst.scroll(500)
@@ -65,30 +64,28 @@ class Schwab(Broker):
                                                   '//*[@id="mcaio-footer"]/div/div[2]/button[2]')
         review_order_btn.click()
         self._chrome_inst.scroll(350)
-        time.sleep(1) # wait for page to load
+        time.sleep(1)  # wait for page to load
         place_order_btn = self._chrome_inst.waitForElementToLoad(By.XPATH,
                                                                  '//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
-        time.sleep(2) # wait for trade page to load again
-
+        time.sleep(2)  # wait for trade page to load again
 
     def _market_sell(self, sym: str, amount: int):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
         time.sleep(2)
+        # inherently sets the action type because it is selling all stocks for that symbol
         self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-sellAllHandle"]').click()
 
-        amount_elem = self._chrome_inst.find(By.XPATH,
-                                             '//*[@id="_txtQty"]')  # techincally uncessary since sell all will sell whatever was bought in the previous
-        self._chrome_inst.sendKeyboardInput(amount_elem,
-                                            str(amount))  # however in the event that there were extras or something this only sells the ones we want
+        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="inputqtyundefined-stepper-input"]')
+        self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
 
         # order_type_dropdown = Select(self._chrome_inst.find(By.XPATH, '//*[@id="order-type"]'))
         # order_type_dropdown.select_by_visible_text("Market")
-        self._chrome_inst.scroll(500) # FIXME: scroll so button in view
+        self._chrome_inst.scroll(500)  # FIXME: scroll so button in view
         time.sleep(1)
         review_order_btn = self._chrome_inst.find(By.XPATH,
                                                   '//*[@id="mcaio-footer"]/div/div[2]/button[2]')
@@ -101,7 +98,7 @@ class Schwab(Broker):
         place_order_btn.click()
 
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
-        time.sleep(2) # wait for trade page to load again
+        time.sleep(2)  # wait for trade page to load again
 
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
@@ -123,13 +120,14 @@ class Schwab(Broker):
         self._chrome_inst.waitToClick("btnLogin")
         time.sleep(2)  # TODO: use selenium wait
 
-    
+    def get_current_positions(self):
+        pass
 
 
 if __name__ == '__main__':
     s = Schwab("temp.csv")
     s.login()
-    s.buy("W", 1)
-    time.sleep(3)
-    s.sell("W", 1)
-    s.save_report()
+    # s.buy("VRM", 1)
+    # time.sleep(3)
+    # s.sell("VRM", 1)
+    # s.save_report()

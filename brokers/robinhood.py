@@ -11,7 +11,7 @@ from utils.report import OrderType, StockData, ActionType, BrokerNames
 
 class Robinhood(Broker):
 
-    def _get_order_data(self, orderId: str): # TODO: finish implementing
+    def _get_order_data(self, orderId: str):  # TODO: finish implementing
         res = []
         order_data = rh.get_stock_order_info(orderId)
         for execution in order_data["executions"]:
@@ -34,9 +34,9 @@ class Robinhood(Broker):
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        self._add_report( program_submitted, program_executed, None, sym, ActionType.BUY,
-                         None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
-                         False, res["id"], None, BrokerNames.RH)
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
+                         amount, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         False, res["id"], None)
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
@@ -48,9 +48,9 @@ class Robinhood(Broker):
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
-        self._add_report( program_submitted, program_executed, None, sym, ActionType.SELL,
-                         None, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
-                         False, res["id"], None, BrokerNames.RH)
+        self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
+                         amount, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         False, res["id"], None)
 
     def _market_buy(self, sym: str, amount: int):
         return NotImplementedError
@@ -75,8 +75,8 @@ class Robinhood(Broker):
                          rh.stocks.get_latest_price(sym)[0],
                          rh.stocks.get_fundamentals(sym, info = "volume")[0])
 
-    def __init__(self, report_file: Path):
-        super().__init__(report_file)
+    def __init__(self, report_file: Path, broker_name: BrokerNames):
+        super().__init__(report_file, broker_name)
 
     def login(self):
         time_logged_in = 60 * 60 * 24 * 365
@@ -87,12 +87,17 @@ class Robinhood(Broker):
                                 by_sms = True,
                                 store_session = True)
 
+    def get_current_positions(self):
+        current_positions = []
+        positions = rh.account.build_holdings()
+        for sym in positions:
+            current_positions.append((sym, float(positions[sym]["quantity"])))
+        return current_positions
+
 
 if __name__ == '__main__':
     r = Robinhood(Path("temp.csv"))
     r.login()
-    r.buy("VRM", 1)
-    time.sleep(5)
-    r.sell("VRM", 1)
-    r.save_report()
+    a = r.get_current_positions()
+    print(a)
     # print(r._executed_trades)

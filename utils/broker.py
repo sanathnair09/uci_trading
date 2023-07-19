@@ -6,7 +6,9 @@ from utils.report import OrderType, StockData, ReportEntry, ActionType, BrokerNa
 
 
 class Broker(ABC):
-    def __init__(self, report_file: Union[Path, str]):
+    THRESHOLD = 500
+    def __init__(self, report_file: Union[Path, str], broker_name: BrokerNames):
+        self._broker_name = broker_name
         self._executed_trades = []
         if type(report_file) is not Path:
             report_file = Path(report_file)
@@ -47,24 +49,20 @@ class Broker(ABC):
     def _limit_sell(self, sym: str, amount: int, limit_price: float):
         pass
 
-    def __handle_none_value(self, value):
-        return " " if value is None else value
+    @abstractmethod
+    def get_current_positions(self):
+        pass
+
     def _add_report(self, program_submitted: str, program_executed: str,
                     broker_executed: str, sym: str, action: ActionType, number_of_shares: int,
                     price: float, dollar_amt: float, pre_stock_data: StockData,
                     post_stock_data: StockData, order_type: OrderType, split: bool,
-                    order_id: str, activity_id: str, broker: BrokerNames):
-        # TODO: make None into "" or " "
-        # args = locals()
-        # for key, value in args.items():
-        #     print(key, value)
-        #     args[key] = self.__handle_none_value(value)
-        # print(locals())
+                    order_id: str, activity_id: str):
         self._executed_trades.append(
             ReportEntry(program_submitted, program_executed, broker_executed, sym,
                         action, number_of_shares, price,
                         dollar_amt, pre_stock_data, post_stock_data, order_type, split,
-                        order_id, activity_id, broker))
+                        order_id, activity_id, self._broker_name))
 
     def save_report(self):
         with self._report_file.open("a") as file:

@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
 
 class CustomChromeInstance:
 
@@ -34,12 +37,16 @@ class CustomChromeInstance:
         # Exclude the collection of enable-automation switches 
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-        prefs = {"credentials_enable_service": False,
-                 "profile.password_manager_enabled": False}
+        prefs = {
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
+            "download.default_directory": "/Users/sanathnair/Developer/trading"
+
+        }
         options.add_experimental_option("prefs", prefs)
         # Turn-off userAutomationExtension 
         # options.add_experimental_option("useAutomationExtension", False) 
-        self._driver = webdriver.Chrome(options=options)
+        self._driver = webdriver.Chrome(options = options)
         self._actions = ActionChains(self._driver)
         # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})") 
 
@@ -49,19 +56,19 @@ class CustomChromeInstance:
     def open(self, page: str):
         self._driver.get(page)
 
-    def _findInElem(self, elem, by,  id: str):
+    def _findInElem(self, elem, by, id: str):
         return elem.find_element(by, id)
 
-    def switchToFrame(self, id: str ):
+    def switchToFrame(self, id: str):
         elem = self._findInElem(self._driver, By.ID, id)
         self._driver.switch_to.frame(elem)
-    
+
     def resetFrame(self):
         self._driver.switch_to.default_content()
 
-    def find(self, by, id: str, elem=None):
+    def find(self, by, id: str, elem = None):
         return self._findInElem(elem, by, id) if elem else self._findInElem(self._driver, by, id)
-    
+
     def waitToClick(self, id: str):
         wait = WebDriverWait(self._driver, 10)
         element = wait.until(EC.element_to_be_clickable((By.ID, id)))
@@ -73,6 +80,12 @@ class CustomChromeInstance:
                 (by, elem))
         )
 
+    def waitForTextInValue(self, by, elem, text: str):
+        return WebDriverWait(self._driver, 10).until(
+            EC.text_to_be_present_in_element_value(
+                (by ,elem), text_ = text)
+        )
+
     def sendKeyboardInput(self, elem, input: str):
         elem.clear()
         elem.send_keys(input)
@@ -82,6 +95,7 @@ class CustomChromeInstance:
 
     def sendKeys(self, keys):
         self._actions.send_keys(keys).perform()
+
 
 if __name__ == '__main__':
     inst = CustomChromeInstance()

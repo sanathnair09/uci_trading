@@ -13,8 +13,8 @@ from selenium.webdriver.common.by import By
 
 #
 class Fidelity(Broker):
-    def __init__(self, report_file):
-        super().__init__(report_file)
+    def __init__(self, report_file, broker_name: BrokerNames):
+        super().__init__(report_file, broker_name)
         self._chrome_inst = CustomChromeInstance()
         self._chrome_inst.open("https://digital.fidelity.com/prgw/digital/login/full-page")
 
@@ -46,12 +46,13 @@ class Fidelity(Broker):
                                         '//*[@id="quote-panel"]/div/div[2]/div[3]/div/span').text.replace(
             ",", "")
         try:
-            quote = self._chrome_inst.find(By.XPATH, '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
+            quote = self._chrome_inst.find(By.XPATH,
+                                           '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
         except NoSuchElementException:
             self._chrome_inst.find(By.ID, 'ett-more-less-quote-link').click()
             time.sleep(0.5)
             quote = self._chrome_inst.find(By.XPATH,
-                                       '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
+                                           '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
 
         return StockData(float(ask_price), float(bid_price), float(quote[1:]), float(volume))
 
@@ -64,7 +65,7 @@ class Fidelity(Broker):
 
         self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None, BrokerNames.FD)
+                         False, None, None)
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
@@ -75,7 +76,7 @@ class Fidelity(Broker):
 
         self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
                          amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None, BrokerNames.FD)
+                         False, None, None)
 
     # def _get_order_num(self):
     #     return self._chrome_inst.find(By.XPATH, '/html/body/div[3]/ap122489-ett-component/div/order-entry-base/div/div/div[2]/equity-order-routing/order-confirm/div/div/order-received/div/div/div/div[3]').text
@@ -150,7 +151,8 @@ class Fidelity(Broker):
         try:
             self._chrome_inst.find(By.XPATH,
                                    "/html/body/div[3]/ap122489-ett-component/div/pvd3-modal[1]/s-root/div/div[2]/div/button")
-            elem = self._chrome_inst.find(By.XPATH, '/html/body/div[3]/ap122489-ett-component/div/pvd3-modal[1]/s-root/div/div[2]/div/button')
+            elem = self._chrome_inst.find(By.XPATH,
+                                          '/html/body/div[3]/ap122489-ett-component/div/pvd3-modal[1]/s-root/div/div[2]/div/button')
             if elem.is_displayed():
                 elem.click()
                 raise ValueError(f'Fidelity {action.value} Error: {sym} - {amount}')
@@ -163,11 +165,23 @@ class Fidelity(Broker):
     def _limit_sell(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
 
+    def get_current_positions(self):
+        self._chrome_inst.open("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
+        time.sleep(4)  # depends on internet speed but min 2 seconds for animation
+        download_csv_positions = self._chrome_inst.waitForElementToLoad(By.XPATH,
+                                                        '//*[@id="posweb-grid_top-presetviews_refresh_settings_share"]/div[2]/div[4]/button')
+        download_csv_positions.click()
+        import glob, pandas as pd # this code assumes that there are no csv files in the main trading directory which there shouldn't be
+        file = glob.glob("/Users/sanathnair/Developer/trading/*.csv")[0]
+        df = pd.read_csv(file)
+        df = df.tail(-1) # delete the first row of the csv
+
+
 
 if __name__ == '__main__':
     a = Fidelity("temp.csv")
     a.login()
+    a.get_current_positions()
     # time.sleep(3)
     # a.sell("VRM", 1)
     # a.save_report()
-
