@@ -3,6 +3,7 @@ from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 from random import randint
+from typing import Union
 
 import pyetrade
 from selenium.webdriver.common.by import By
@@ -24,7 +25,7 @@ _ETradeOrderInfo = namedtuple("ETradeOrderInfo",
 
 
 class ETrade(Broker):
-    def __init__(self, report_file: Path, broker_name: BrokerNames):
+    def __init__(self, report_file: Union[Path, str], broker_name: BrokerNames):
         super().__init__(report_file, broker_name)
         self._market = None
         self._orders = None
@@ -84,9 +85,9 @@ class ETrade(Broker):
                     (By.XPATH, "/html/body/div[2]/div/div/input"))
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
-        except Exception as e:
+        except Exception:
             chrome_inst.quit()
-            print("Error logging in automatically. Trying Manually...", e)
+            print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key,
                                          self._consumer_secret)
             print(oauth.get_request_token())  # Use the printed URL
@@ -123,16 +124,41 @@ class ETrade(Broker):
         return StockData(float(quote['All']['ask']), float(quote['All']['bid']),
                          float(quote['All']['lastTrade']), float(quote['All']['totalVolume']))
 
-    def get_order_data(self, sym: list[str], orderId):
+    def get_order_data(self, sym: list[str], orderId, from_date, to_date):
         """
+        from_date and to_date: formatted in MMDDYYYY
         in the event the program gave you incorrect data you can manually query etrade for the data using this method
         """
+        orderId = str(orderId)
         data = self._orders.list_orders(account_id_key = self._account_id, resp_format = "json",
-                                        symbol = sym)["OrdersResponse"]["Order"]
-        for entry in data:
-            if entry["orderId"] == orderId:
-                print(entry)
+                                        symbol = sym, from_date = from_date, to_date = to_date)[
+            "OrdersResponse"]
+        pagination = True
+        while pagination:
+            try:
+                marker = data["marker"]
+            except KeyError:
+                marker = ''
+                pagination = False
 
+            data = data["Order"]
+            for entry in data:
+                if str(entry["orderId"]) == orderId:
+                    return entry
+            if marker != '':
+                data = self._orders.list_orders(account_id_key = self._account_id,
+                                                resp_format = "json",
+                                                symbol = sym, from_date = from_date,
+                                                to_date = to_date, marker = marker)[
+                    "OrdersResponse"]
+            else:
+                data = self._orders.list_orders(account_id_key = self._account_id,
+                                                resp_format = "json",
+                                                symbol = sym, from_date = from_date,
+                                                to_date = to_date)[
+                    "OrdersResponse"]
+
+    @repeat_on_fail()
     def _get_latest_order(self) -> _ETradeOrderInfo:
         """
         ETrade API: https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/OrdersResponse
@@ -143,10 +169,17 @@ class ETrade(Broker):
         orderId = order_data["orderId"]
         order_data = order_data["OrderDetail"][0]
         quantity = order_data["Instrument"][0]["orderedQuantity"]
-        price = order_data["orderValue"] / quantity
-        dollar_amt = quantity * price
+        # averageExecutionPrice key won't exist right after order since order will be OPEN not EXECUTED
+        if order_data["status"] == "EXECUTED":
+            price = order_data["Instrument"][0]["averageExecutionPrice"]
+            dollar_amt = quantity * price
+        else:
+            price = ""
+            dollar_amt = ""
+
         return _ETradeOrderInfo(order_data["placedTime"], quantity, price, dollar_amt, orderId)
 
+    @repeat_on_fail()
     def buy(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
@@ -165,6 +198,7 @@ class ETrade(Broker):
                          order_data.dollar_amt, pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, order_data.orderId, None)
 
+    @repeat_on_fail()
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
@@ -216,22 +250,31 @@ class ETrade(Broker):
             else:
                 current_positions.append((positions["symbolDescription"], positions["quantity"]))
         except Exception as e:
-            print(broker.name(), "something failed", e)
+            print(self.name(), "something failed", e)
 
         return current_positions
+
+    def temp(self, transaction_id):
+        data = self._accounts.list_transactions(account_id_key = self._account_id,
+                                                resp_format = "json")
+        return data
 
 
 if __name__ == '__main__':
     brokers = [
         ETrade(Path("temp.csv"), BrokerNames.ET),
-        ETrade(Path("temp.csv"), BrokerNames.E2)
+        # ETrade(Path("temp.csv"), BrokerNames.E2)
     ]
     for broker in brokers:
         broker.login()
-    for broker in brokers:
-        broker.buy("VRM", 1)
-        time.sleep(2)
-        broker.sell("VRM", 1)
-        time.sleep(2)
-
-
+    a = brokers[0].get_order_data(["WH"], 38330, "06232023", "06242023")
+    print("got")
+    print(a)
+    # for broker in brokers:
+    #     broker.buy("VRM", 1)
+    #     time.sleep(1)
+    #     broker.save_report()
+    # for broker in brokers:
+    #     broker.sell("VRM", 1)
+    #     time.sleep(1)
+    #     broker.save_report()

@@ -7,7 +7,8 @@ import schedule
 
 from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
 from utils.misc import get_program_data, update_program_data, reset_program_data
-from utils.post_processing import data_post_processing
+from utils.post_processing import PostProcessing
+# from utils.post_processing import data_post_processing
 from utils.report import BrokerNames
 
 
@@ -112,7 +113,7 @@ def setup():
     # TODO: if crashed on sell resume by selling
 
     print("Creating report file...")
-    report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
+    report_file = Path(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
     print("Finished creating report file...")
 
     print("Finished pre-trade setup...")
@@ -132,9 +133,13 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
             ETrade(report_file, BrokerNames.ET),
             ETrade(report_file, BrokerNames.E2),
         ],
-        [Fidelity(report_file, BrokerNames.FD), ],
+        [
+            Fidelity(report_file, BrokerNames.FD),
+        ],
         # [IBKR(report_file, BrokerNames.IB),],
-        [Schwab(report_file, BrokerNames.SB)],
+        [
+            Schwab(report_file, BrokerNames.SB)
+        ],
     ]
 
     for group in brokers:
@@ -183,22 +188,21 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         time.sleep(1)
 
 
-def manual_override(stock_list: list[tuple[int, str]]):
+def manual_override(stock_list):
     """in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks"""
     report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
 
     brokers = [
         # TDAmeritrade(report_file, BrokerNames.TD),
         # Robinhood(report_file, BrokerNames.RH),
-        ETrade(report_file, BrokerNames.ET),
+        # ETrade(report_file, BrokerNames.ET),
         # ETrade(report_file, BrokerNames.E2),
-        # Fidelity(report_file, BrokerNames.FD),
+        Fidelity(report_file, BrokerNames.FD),
         # IBKR(report_file, BrokerNames.IB),
-        # Schwab(report_file, BrokerNames.SB)
+        Schwab(report_file, BrokerNames.SB)
     ]
 
     for broker in brokers:
-
         broker.login()
 
     for amount, stock in stock_list:
@@ -229,9 +233,7 @@ def sell_leftover_positions():
         for broker in group:
             broker.login()
 
-
     for group in brokers:
-        print(group)
         for broker in group:
             try:
                 leftover = broker.get_current_positions()
@@ -249,9 +251,9 @@ if __name__ == "__main__":
     stock market hours (PST): 6:30 - 1:00
     """
     # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("10:06", 7, 3)
+    # automated_trading("9:34", 7, 3)
     # sell_leftover_positions()
     # manual_override([
-    # ])
-    data_post_processing(f"reports/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
+    # ]))
+    # PostProcessing().generate_report(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
     pass
