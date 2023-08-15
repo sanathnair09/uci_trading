@@ -3,6 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
+from loguru import logger
+from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
@@ -14,7 +16,7 @@ from utils.report import OrderType, ActionType, BrokerNames
 
 
 class Schwab(Broker):
-    def __init__(self, report_file: Path, broker_name: BrokerNames):
+    def __init__(self, report_file, broker_name: BrokerNames):
         super().__init__(report_file, broker_name)
         self._chrome_inst = CustomChromeInstance()
         self._chrome_inst.open("https://client.schwab.com/Login/SignOn/CustomerCenterLogin.aspx")
@@ -25,24 +27,37 @@ class Schwab(Broker):
     def buy(self, sym: str, amount: int):
         pre_stock_data = TDAmeritrade.get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
-        self._market_buy(sym, amount)
-        program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = TDAmeritrade.get_stock_data(sym)
+        try:
+            self._market_buy(sym, amount)
+            program_executed = datetime.now().strftime("%X:%f")
+            post_stock_data = TDAmeritrade.get_stock_data(sym)
 
-        self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
-                         amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None)
+            self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
+                             amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
+                             False, None, None)
+        except NoSuchElementException as e:
+            if "sellAllHandle" in e.msg:
+                logger.error(f"Schwab - Error buying {amount} {sym}")
+            else:
+                raise e
+
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = TDAmeritrade.get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
-        self._market_sell(sym, amount)
-        program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = TDAmeritrade.get_stock_data(sym)
+        try:
+            self._market_sell(sym, amount)
+            program_executed = datetime.now().strftime("%X:%f")
+            post_stock_data = TDAmeritrade.get_stock_data(sym)
 
-        self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
-                         amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
-                         False, None, None)
+            self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
+                             amount, None, None, pre_stock_data, post_stock_data, OrderType.MARKET,
+                             False, None, None)
+        except NoSuchElementException as e:
+            if "sellAllHandle" in e.msg:
+                logger.error(f"Schwab - Error selling {amount} {sym}")
+            else:
+                raise e
 
     def _market_buy(self, sym: str, amount: int):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
@@ -124,10 +139,11 @@ class Schwab(Broker):
         pass
 
 
+
 if __name__ == '__main__':
-    s = Schwab("temp.csv")
+    s = Schwab("temp.csv", BrokerNames.SB)
     s.login()
     # s.buy("VRM", 1)
     # time.sleep(3)
-    # s.sell("VRM", 1)
+    s.sell("VRM", 1)
     # s.save_report()

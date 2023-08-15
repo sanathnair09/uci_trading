@@ -1,11 +1,13 @@
 from pathlib import Path
 
+from loguru import logger
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 
 
 class CustomChromeInstance:
@@ -44,14 +46,22 @@ class CustomChromeInstance:
 
         }
         options.add_experimental_option("prefs", prefs)
+
         # Turn-off userAutomationExtension 
-        # options.add_experimental_option("useAutomationExtension", False) 
-        self._driver = webdriver.Chrome(options = options)
+        # options.add_experimental_option("useAutomationExtension", False)
+        self._driver = webdriver.Chrome(service = Service(), options = options)
         self._actions = ActionChains(self._driver)
         # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})") 
 
     def __del__(self):
-        self._driver.quit()
+        if self._driver:
+            try:
+                self._driver.quit()
+            except Exception as e:
+                logger.error(f"Error quitting selenium")
+                # print(e)
+        else:
+            logger.info(f"Web driver not initialized {self._driver}")
 
     def open(self, page: str):
         self._driver.get(page)
@@ -83,7 +93,7 @@ class CustomChromeInstance:
     def waitForTextInValue(self, by, elem, text: str):
         return WebDriverWait(self._driver, 10).until(
             EC.text_to_be_present_in_element_value(
-                (by ,elem), text_ = text)
+                (by, elem), text_ = text)
         )
 
     def sendKeyboardInput(self, elem, input: str):
@@ -97,8 +107,14 @@ class CustomChromeInstance:
         self._actions.send_keys(keys).perform()
 
 
+    def quit(self):
+        if self._driver:
+            self._driver.quit()
+            self._driver = None
+
+
 if __name__ == '__main__':
     inst = CustomChromeInstance()
     inst.open("https://stackoverflow.com/questions/37398301/json-dumps-format-python")
     inst.scroll(300)
-    input()
+    inst.quit()

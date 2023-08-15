@@ -2,13 +2,15 @@ import datetime
 import random
 import time
 from pathlib import Path
+from pyexpat import ExpatError
 
 import schedule
+from loguru import logger
 
 from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
+from utils.debugger import init_logging
 from utils.misc import get_program_data, update_program_data, reset_program_data
 from utils.post_processing import PostProcessing
-# from utils.post_processing import data_post_processing
 from utils.report import BrokerNames
 
 
@@ -55,7 +57,7 @@ def buy_across_brokers(brokers, stock_list):
                     broker.buy(stock, amount)
                     broker.save_report()
                 except Exception as e:
-                    print(f"Error buying {amount} '{stock}' stocks: {e}")
+                    print(f"{broker.name()} Error buying {amount} '{stock}' stocks: {e}")
                     log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
     print("Done Buying...")
@@ -72,7 +74,7 @@ def sell_across_brokers(brokers, stock_list):
                     broker.sell(stock, amount)
                     broker.save_report()
                 except Exception as e:
-                    print(f"Error selling {amount} '{stock}' stocks: {e}")
+                    print(f"{broker.name()} Error selling {amount} '{stock}' stocks: {e}")
                     log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
     print("Done Selling...")
@@ -130,13 +132,15 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         [TDAmeritrade(report_file, BrokerNames.TD), ],
         [Robinhood(report_file, BrokerNames.RH), ],
         [
-            ETrade(report_file, BrokerNames.ET),
+            # ETrade(report_file, BrokerNames.ET),
             ETrade(report_file, BrokerNames.E2),
         ],
         [
             Fidelity(report_file, BrokerNames.FD),
         ],
-        # [IBKR(report_file, BrokerNames.IB),],
+        [
+            IBKR(report_file, BrokerNames.IF),
+        ],
         [
             Schwab(report_file, BrokerNames.SB)
         ],
@@ -190,16 +194,17 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
 
 def manual_override(stock_list):
     """in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks"""
-    report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
+    report_file = Path(
+        "reports/original/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
 
     brokers = [
         # TDAmeritrade(report_file, BrokerNames.TD),
         # Robinhood(report_file, BrokerNames.RH),
         # ETrade(report_file, BrokerNames.ET),
         # ETrade(report_file, BrokerNames.E2),
-        Fidelity(report_file, BrokerNames.FD),
-        # IBKR(report_file, BrokerNames.IB),
-        Schwab(report_file, BrokerNames.SB)
+        # Fidelity(report_file, BrokerNames.FD),
+        IBKR(report_file, BrokerNames.IF),
+        # Schwab(report_file, BrokerNames.SB)
     ]
 
     for broker in brokers:
@@ -215,7 +220,8 @@ def manual_override(stock_list):
 
 
 def sell_leftover_positions():
-    report_file = Path("reports/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
+    report_file = Path(
+        "reports/original/report_{0}.csv".format(datetime.datetime.now().strftime("%m_%d")))
 
     brokers = [
         [TDAmeritrade(report_file, BrokerNames.TD), ],
@@ -242,18 +248,22 @@ def sell_leftover_positions():
                 for sym, amount in to_sell:
                     broker.sell(sym, amount)
                     broker.save_report()
+            except ExpatError:
+                print(broker.name(), "No positions")
             except Exception as e:
-                print(broker.name(), e)
+                logger.error(e)
 
 
 if __name__ == "__main__":
     """
     stock market hours (PST): 6:30 - 1:00
     """
+    init_logging()
     # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("9:34", 7, 3)
+    # automated_trading("10:20", 7, 3)
     # sell_leftover_positions()
     # manual_override([
-    # ]))
-    # PostProcessing().generate_report(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
+    # ])
+    processor = PostProcessing()
+    processor.generate_report(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
     pass

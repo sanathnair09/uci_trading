@@ -44,7 +44,6 @@ class Robinhood(Broker):
 
         res = self._limit_sell(sym, amount,
                                round(float(pre_stock_data.ask) * 0.95, 2))  # 5% below actual price
-
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
@@ -96,8 +95,6 @@ class Robinhood(Broker):
 
 
 if __name__ == '__main__':
-    r = Robinhood(Path("temp.csv"))
+    r = Robinhood(Path("temp.csv"), BrokerNames.RH)
     r.login()
-    a = r.get_current_positions()
-    print(a)
     # print(r._executed_trades)

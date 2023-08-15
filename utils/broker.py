@@ -6,7 +6,8 @@ from utils.report import OrderType, StockData, ReportEntry, ActionType, BrokerNa
 
 
 class Broker(ABC):
-    THRESHOLD = 500
+    THRESHOLD = 1000
+
     def __init__(self, report_file: Union[Path, str], broker_name: BrokerNames):
         self._broker_name = broker_name
         self._executed_trades = []
@@ -14,8 +15,9 @@ class Broker(ABC):
             report_file = Path(report_file)
         self._report_file = report_file
         if not self._report_file.exists():
-            self._report_file.touch() # TODO: if changing the columns of report file also modify here
-            self._report_file.write_text("Date,Program Submitted,Program Executed,Broker Executed,Symbol,Broker,Action,Size,Price,Dollar Amt,Pre Quote,Post Quote,Pre Bid,Pre Ask,Post Bid,Post Ask,Pre Volume,Post Volume,Order Type,Split,Order ID,Activity ID\n")
+            self._report_file.touch()  # TODO: if changing the columns of report file also modify here
+            self._report_file.write_text(
+                "Date,Program Submitted,Program Executed,Broker Executed,Symbol,Broker,Action,Size,Price,Dollar Amt,Pre Quote,Post Quote,Pre Bid,Pre Ask,Post Bid,Post Ask,Pre Volume,Post Volume,Order Type,Split,Order ID,Activity ID\n")
 
     @abstractmethod
     def login(self):
@@ -72,4 +74,4 @@ class Broker(ABC):
         self._executed_trades.clear()
 
     def name(self):
-        return self.__class__.__name__
+        return self._broker_name.value if self._broker_name else self.__class__.__name__

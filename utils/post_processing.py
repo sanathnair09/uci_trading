@@ -167,17 +167,20 @@ class PostProcessing:
             broker_obj = self._brokers["E2"]
 
         from_date = row["Date"]
-        formated_date = datetime.strptime(from_date, "%m/%d/%y")
-        to_date = formated_date + timedelta(days = 1)
+        formatted_date = datetime.strptime(from_date, "%m/%d/%y")
+        to_date = formatted_date + timedelta(days = 1)
 
         order_data = broker_obj.get_order_data([row["Symbol"]], row["Order ID"],
-                                               from_date = formated_date.strftime("%m%d%Y"),
+                                               from_date = formatted_date.strftime("%m%d%Y"),
                                                to_date = to_date.strftime("%m%d%Y"))
-        order_data = order_data["OrderDetail"][0]
-        price = order_data["Instrument"][0]["averageExecutionPrice"]
-        dollar_amt = row["Size"] * price
-        row["Price"] = price
-        row["Dollar Amt"] = dollar_amt
+        if order_data:
+            order_data = order_data["OrderDetail"][0]
+            price = order_data["Instrument"][0]["averageExecutionPrice"]
+            dollar_amt = row["Size"] * price
+            row["Price"] = price
+            row["Dollar Amt"] = dollar_amt
+        else:
+            print(row["Order ID"])
         return row
 
     def generate_report(self, report_file):

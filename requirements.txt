@@ -6,3 +6,4 @@ tda-api==1.6.0
 schedule==1.2.0
 python-dotenv==1.0.0
 pytz==2022.7.1
+loguru==0.7.0

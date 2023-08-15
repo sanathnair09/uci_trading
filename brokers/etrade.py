@@ -6,6 +6,7 @@ from random import randint
 from typing import Union
 
 import pyetrade
+from loguru import logger
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
@@ -85,9 +86,10 @@ class ETrade(Broker):
                     (By.XPATH, "/html/body/div[2]/div/div/input"))
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
-        except Exception:
+        except:
             chrome_inst.quit()
-            print("Error logging in automatically. Trying Manually...")
+            logger.error("Error logging in automatically. Trying Manually...")
+            # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key,
                                          self._consumer_secret)
             print(oauth.get_request_token())  # Use the printed URL
@@ -157,6 +159,7 @@ class ETrade(Broker):
                                                 symbol = sym, from_date = from_date,
                                                 to_date = to_date)[
                     "OrdersResponse"]
+        return None
 
     @repeat_on_fail()
     def _get_latest_order(self) -> _ETradeOrderInfo:
@@ -241,16 +244,13 @@ class ETrade(Broker):
     def get_current_positions(self):
         current_positions = []
         # try catch for when nothing left
-        try:
-            positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"][
-                "AccountPortfolio"]["Position"]
-            if type(positions) is list:  # multiple stocks are left over
-                for position in positions:
-                    current_positions.append((position["symbolDescription"], position["quantity"]))
-            else:
-                current_positions.append((positions["symbolDescription"], positions["quantity"]))
-        except Exception as e:
-            print(self.name(), "something failed", e)
+        positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"][
+            "AccountPortfolio"]["Position"]
+        if type(positions) is list:  # multiple stocks are left over
+            for position in positions:
+                current_positions.append((position["symbolDescription"], position["quantity"]))
+        else:
+            current_positions.append((positions["symbolDescription"], positions["quantity"]))
 
         return current_positions
 
@@ -268,7 +268,6 @@ if __name__ == '__main__':
     for broker in brokers:
         broker.login()
     a = brokers[0].get_order_data(["WH"], 38330, "06232023", "06242023")
-    print("got")
     print(a)
     # for broker in brokers:
     #     broker.buy("VRM", 1)
