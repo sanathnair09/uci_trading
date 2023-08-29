@@ -3,8 +3,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+BASE_PATH = Path("/Users/sanathnair/Developer/trading") # FIXME: relative path name
 
-file_path = Path("/Users/sanathnair/Developer/trading") / ".env" # FIXME: relative path name
+file_path = BASE_PATH / ".env"
 load_dotenv(file_path)
 
 RH_LOGIN = os.getenv("RH_LOGIN")

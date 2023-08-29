@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
-from utils.report import OrderType, StockData, ReportEntry, ActionType, BrokerNames
+from utils.report.report import OrderType, StockData, ReportEntry, ActionType, BrokerNames
 
 
 class Broker(ABC):
@@ -57,7 +57,7 @@ class Broker(ABC):
 
     def _add_report(self, program_submitted: str, program_executed: str,
                     broker_executed: str, sym: str, action: ActionType, number_of_shares: int,
-                    price: float, dollar_amt: float, pre_stock_data: StockData,
+                    price: Union[float, str], dollar_amt: Union[float, str], pre_stock_data: StockData,
                     post_stock_data: StockData, order_type: OrderType, split: bool,
                     order_id: str, activity_id: str):
         self._executed_trades.append(

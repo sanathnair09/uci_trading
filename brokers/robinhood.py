@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -6,7 +5,7 @@ import robin_stocks.robinhood as rh
 from brokers import RH_LOGIN, RH_PASSWORD
 from utils.broker import Broker
 from utils.misc import repeat_on_fail
-from utils.report import OrderType, StockData, ActionType, BrokerNames
+from utils.report.report import OrderType, StockData, ActionType, BrokerNames
 
 
 class Robinhood(Broker):
@@ -35,7 +34,7 @@ class Robinhood(Broker):
         post_stock_data = self._get_stock_data(sym)
 
         self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
-                         amount, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         amount, "", "", pre_stock_data, post_stock_data, OrderType.LIMIT,
                          False, res["id"], None)
 
     def sell(self, sym: str, amount: int):
@@ -48,7 +47,7 @@ class Robinhood(Broker):
         post_stock_data = self._get_stock_data(sym)
 
         self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
-                         amount, None, None, pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         amount, "", "", pre_stock_data, post_stock_data, OrderType.LIMIT,
                          False, res["id"], None)
 
     def _market_buy(self, sym: str, amount: int):

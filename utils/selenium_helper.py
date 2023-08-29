@@ -42,9 +42,9 @@ class CustomChromeInstance:
         prefs = {
             "credentials_enable_service": False,
             "profile.password_manager_enabled": False,
-            "download.default_directory": "/Users/sanathnair/Developer/trading"
-
+            "download.default_directory": "/Users/sanathnair/Developer/trading/data"
         }
+
         options.add_experimental_option("prefs", prefs)
 
         # Turn-off userAutomationExtension 
@@ -106,6 +106,8 @@ class CustomChromeInstance:
     def sendKeys(self, keys):
         self._actions.send_keys(keys).perform()
 
+    def get_page_source(self):
+        return self._driver.page_source
 
     def quit(self):
         if self._driver:

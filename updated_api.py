@@ -10,8 +10,8 @@ from loguru import logger
 from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
 from utils.debugger import init_logging
 from utils.misc import get_program_data, update_program_data, reset_program_data
-from utils.post_processing import PostProcessing
-from utils.report import BrokerNames
+from utils.report.post_processing import PostProcessing
+from utils.report.report import BrokerNames
 
 
 PROGRAM_INFO_FILE_PATH = "previous_program_info.json"
@@ -23,7 +23,7 @@ STOCK_LIST = [  # TODO: possible optimization with diff data structure
     'SHLS', 'AGL', 'BATL', 'PRTK', 'HEAR', 'SCHL', 'IFF', 'EDUC', 'AAP', 'PANW',  # 20
     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
-    'CTMX', 'NETC', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
+    'CTMX', 'BYNO', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
     'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
@@ -58,7 +58,6 @@ def buy_across_brokers(brokers, stock_list):
                     broker.save_report()
                 except Exception as e:
                     print(f"{broker.name()} Error buying {amount} '{stock}' stocks: {e}")
-                    log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
     print("Done Buying...")
 
@@ -75,7 +74,6 @@ def sell_across_brokers(brokers, stock_list):
                     broker.save_report()
                 except Exception as e:
                     print(f"{broker.name()} Error selling {amount} '{stock}' stocks: {e}")
-                    log_failure(stock, amount, broker.name())
         update_program_data(PROGRAM_INFO_FILE_PATH, "PREVIOUS_STOCK_NAME", stock)
     print("Done Selling...")
 
@@ -132,7 +130,7 @@ def automated_trading(start_time: str, time_between_buy_and_sell: float,
         [TDAmeritrade(report_file, BrokerNames.TD), ],
         [Robinhood(report_file, BrokerNames.RH), ],
         [
-            # ETrade(report_file, BrokerNames.ET),
+            ETrade(report_file, BrokerNames.ET),
             ETrade(report_file, BrokerNames.E2),
         ],
         [
@@ -213,7 +211,7 @@ def manual_override(stock_list):
     for amount, stock in stock_list:
         for broker in brokers:
             try:
-                broker.sell(stock, amount)
+                broker.buy(stock, amount)
                 broker.save_report()
             except Exception as e:
                 print(f"Error selling {amount} '{stock}' stocks: {e}")
@@ -254,16 +252,20 @@ def sell_leftover_positions():
                 logger.error(e)
 
 
+def generate_report():
+    # TODO: make sure to download fidelity data at end of each day
+    processor = PostProcessing()
+    processor.optimized_generate_report(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
+
+
 if __name__ == "__main__":
     """
     stock market hours (PST): 6:30 - 1:00
     """
     init_logging()
-    # TODO: get stock status at beginning of day to check at end of day
-    # automated_trading("10:20", 7, 3)
+    # automated_trading("11:18", 6, 4)
     # sell_leftover_positions()
     # manual_override([
     # ])
-    processor = PostProcessing()
-    processor.generate_report(f"reports/original/report_{datetime.datetime.now().strftime('%m_%d')}.csv")
+    # generate_report()
     pass

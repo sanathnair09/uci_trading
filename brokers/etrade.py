@@ -17,7 +17,7 @@ from brokers import ETRADE2_CONSUMER_KEY, ETRADE2_CONSUMER_SECRET, ETRADE2_LOGIN
     ETRADE2_ACCOUNT_ID
 from utils.broker import Broker
 from utils.misc import repeat_on_fail
-from utils.report import StockData, ActionType, OrderType, BrokerNames
+from utils.report.report import StockData, ActionType, OrderType, BrokerNames
 from utils.selenium_helper import CustomChromeInstance
 
 

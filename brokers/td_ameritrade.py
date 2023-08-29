@@ -8,7 +8,7 @@ from utils.broker import Broker
 from brokers import TD_KEY, TD_URI, TD_TOKEN_PATH, TD_ACC_NUM
 from utils.selenium_helper import CustomChromeInstance
 from utils.misc import repeat_on_fail, calculate_num_stocks_to_buy
-from utils.report import StockData, ActionType, OrderType, BrokerNames
+from utils.report.report import StockData, ActionType, OrderType, BrokerNames
 
 
 class TDAmeritrade(Broker):

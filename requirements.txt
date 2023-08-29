@@ -1,9 +1,10 @@
 pandas==2.0.2
 pyetrade==1.4.1
 robin-stocks==2.1.0
-selenium==4.10.0
+selenium==4.11.2
 tda-api==1.6.0
 schedule==1.2.0
 python-dotenv==1.0.0
 pytz==2022.7.1
 loguru==0.7.0
+numpy==1.25.0
