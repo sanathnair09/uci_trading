@@ -6,15 +6,18 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import robin_stocks.robinhood as rh
+from loguru import logger
 from pytz import utc, timezone
 
-from brokers import RH_LOGIN, RH_PASSWORD, ETrade, Fidelity, BASE_PATH
+from brokers import RH_LOGIN, RH_PASSWORD, ETrade, Fidelity, BASE_PATH, Robinhood
+from utils.broker import NULL_ENTRY
 from utils.report.report import ActionType, BrokerNames
-from utils.report.report_utils import get_ibkr_report, get_schwab_report, \
+from utils.report.report_utils import get_schwab_report, \
     create_datetime_from_string, get_robinhood_data, convert_int64_utc_to_pst, \
     vectorized_calculate_rounded_price, optimized_calculate_price_improvement, \
     optimized_calculate_subpenny_and_fractionalpino5, optimized_calculate_BJZZ_flag, \
-    optimized_calculate_correct_and_wrong, optimized_calculate_categories, optimized_calculate_bjzz
+    optimized_calculate_correct_and_wrong, optimized_calculate_categories, optimized_calculate_bjzz, \
+    get_ibkr_report, merge_etrade_report
 
 
 def check_file_existence(file_path):
@@ -31,84 +34,75 @@ class PostProcessing:
         self._login()
 
     def _login(self):
-        rh.login(RH_LOGIN, RH_PASSWORD)
+        rh_acc = input("Which RH account do you want to login to? (RH/RH2): ")
+        Robinhood.login_custom(account = rh_acc)
         self._brokers = {
             'ET': ETrade('', BrokerNames.ET),
             'E2': ETrade('', BrokerNames.E2),
             'FD': Fidelity('', BrokerNames.FD)
         }
-        self._brokers["ET"].login()
-        self._brokers["E2"].login()
-        self._brokers["FD"].login()
+        for broker in self._brokers.values():
+            broker.login()
 
-        print("Finished logging in...")
+        logger.info("Finished logging in...")
 
-        print("Downloading Fidelity Splits")
-        self._brokers["FD"].download_trade_data()
-
-    def _get_etrade_data(self, row):
-        broker = row["Broker"]
-        broker_obj: Union[ETrade, None] = None
-        if broker == "ET":
-            broker_obj = self._brokers["ET"]
-        elif broker == "E2":
-            broker_obj = self._brokers["E2"]
-
-        from_date = row["Date"]
-        formatted_date = datetime.strptime(from_date, "%m/%d/%y")
-        to_date = formatted_date + timedelta(days = 1)
-
-        order_data = broker_obj.get_order_data([row["Symbol"]], row["Order ID"],
-                                               from_date = formatted_date.strftime("%m%d%Y"),
-                                               to_date = to_date.strftime("%m%d%Y"))
-        if order_data:
-            order_data = order_data["OrderDetail"][0]
-            price = order_data["Instrument"][0]["averageExecutionPrice"]
-            dollar_amt = row["Size"] * price
-            row["Price"] = price
-            row["Dollar Amt"] = dollar_amt
-        else:
-            print(row["Order ID"])
-        return row
+    def _get_etrade_data(self, df):
+        """
+        gets etrade data and merges into the original df
+        :param df: original df
+        :return: new df with merged data
+        """
+        ets = df.loc[(df["Broker"] == "ET") | (df["Broker"] == "E2")].copy()
+        ets["Order ID"] = ets["Order ID"].astype(int)
+        df = df.drop(ets.index)
+        new_ets = pd.DataFrame()
+        for _, row in ets.iterrows():
+            orderId = row["Order ID"]
+            broker = row["Broker"]
+            trade_df = self._brokers[broker].get_order_data(orderId = orderId)
+            for idx, split in trade_df.iterrows():
+                row["Broker Executed"] = convert_int64_utc_to_pst(split["Broker Executed"])
+                row["Size"] = split["Size"]
+                row["Price"] = split["Price"]
+                row["Dollar Amt"] = split["Dollar Amt"]
+                row["Split"] = True
+                new_ets = pd.concat([new_ets, row.to_frame().T], ignore_index = False)
+        df = pd.concat([df, new_ets], ignore_index = False)
+        return df
 
     def _get_broker_data(self, date):
 
         ibkr_file = BASE_PATH / f"data/ibkr/DailyTradeReport.{date.strftime('%Y%m%d')}.html"
         fidelity_file = BASE_PATH / f"data/fidelity/fd_splits_{date.strftime('%m_%d')}.csv"
+
         schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.json"
 
         ibkr_df = get_ibkr_report(ibkr_file) if check_file_existence(ibkr_file) else None
-        fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else \
-            self._brokers["FD"].get_trade_data()
-        schwab_df = get_schwab_report(schwab_file) if check_file_existence(
-            schwab_file) else None  # TODO: parse schwab data
+        fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else self._brokers["FD"].get_trade_data()
+        schwab_df = get_schwab_report(schwab_file) if check_file_existence(schwab_file) else None
 
-        if isinstance(fidelity_df, pd.DataFrame):
-            fidelity_df["Broker Executed"] = pd.to_datetime(fidelity_df["Broker Executed"], format = "%Y-%m-%d %H:%M:%S")
-
-        return ibkr_df, fidelity_df, schwab_df  # IBKR, Fidelity, Schwab
+        return ibkr_df, fidelity_df, schwab_df
 
     def optimized_generate_report(self, report_file):
-        print("Processing:", report_file)
-        start = time.time()
+        logger.info(f"Processing: {report_file}")
+        start = time.perf_counter()
 
         formatted_date = create_datetime_from_string(report_file)
-        ibkr_df, fidelity_df, schwab_df = self._get_broker_data(formatted_date)
+        ibkr_df, fidelity_df, schwab_df = self._get_broker_data(
+            formatted_date)
 
         df = pd.read_csv(report_file)
-
-        # get broker data
 
         def parse_broker_data(row, broker):
             symbol = row["Symbol"]
             action = row["Action"]
 
             if broker == "IF":
-                hour = row["Broker Executed"].strftime("%I")
+                hour = row["Broker Executed"][:2]
                 report_row = df[
                     (df["Broker"] == broker) & (df["Symbol"] == symbol) & (
                             df["Action"] == action) & (df["Program Submitted"].str[:2] == hour)]
-            else:
+            else: # TODO: add minute check for fidelity to make sure that right row corresponds
                 report_row = df[
                     (df["Broker"] == broker) & (df["Symbol"] == symbol) & (df["Action"] == action)]
 
@@ -116,39 +110,51 @@ class PostProcessing:
                 if report_row.shape[0] > 1:
                     report_row = report_row.iloc[0]
 
-                if broker != "SB": # schwab doesn't provide exact execution time
-                    report_row["Broker Executed"] = row["Broker Executed"].strftime("%X")
-                report_row["Size"] = row["Quantity"]
+                if broker != "SB":  # schwab doesn't provide exact execution time
+                    report_row["Broker Executed"] = row["Broker Executed"]
+                if broker == "FD": # fidelity contains split info
+                    report_row["Split"] = row["Split"]
+                report_row["Size"] = row["Size"]
                 report_row["Price"] = row["Price"]
                 report_row["Dollar Amt"] = row["Dollar Amt"]
                 return report_row.squeeze()
+            return NULL_ENTRY
 
         if isinstance(ibkr_df, pd.DataFrame):
+            logger.info("Processing IBKR")
             new_ibkr_entries = ibkr_df.apply(parse_broker_data, broker = "IF", axis = 1)
-            new_ibkr_entries = new_ibkr_entries[
-                new_ibkr_entries["Date"].notna()]  # remove any possible null rows
-            df.drop((df[df["Broker"] == "IF"]).index, inplace = True)  # remove all IBKR entries
+            # remove any possible null rows
+            new_ibkr_entries = new_ibkr_entries[new_ibkr_entries["Date"].notna()]
+            df = df.drop((df[df["Broker"] == "IF"]).index)  # remove all IBKR entries
             df = pd.concat([df, new_ibkr_entries], ignore_index = True)
+            logger.info("Done IBKR")
 
         if isinstance(fidelity_df, pd.DataFrame):
+            logger.info("Processing Fidelity")
             fidelity_splits = fidelity_df.apply(parse_broker_data, broker = "FD", axis = 1)
-            df.drop((df[df["Broker"] == "FD"]).index, inplace = True)
+            df = df.drop((df[df["Broker"] == "FD"]).index)
             df = pd.concat([df, fidelity_splits], ignore_index = True)
+            logger.info("Done Fidelity")
 
         if isinstance(schwab_df, pd.DataFrame):
+            logger.info("Processing Schwab")
             schwab_data = schwab_df.apply(parse_broker_data, broker = "SB", axis = 1)
-            df.drop((df[df["Broker"] == "SB"]).index, inplace = True)
+            df = df.drop((df[df["Broker"] == "SB"]).index)
             df = pd.concat([df, schwab_data], ignore_index = True)
+            logger.info("Done Schwab")
 
+        logger.info("Processing Robinhood")
         df.loc[df['Broker'] == "RH"] = df.loc[df['Broker'] == "RH"].apply(get_robinhood_data,
                                                                           axis = 1)
-        df.loc[(df["Broker"] == "ET") | (df["Broker"] == "E2")] = df.loc[
-            (df["Broker"] == "ET") | (df["Broker"] == "E2")].apply(
-            lambda row: self._get_etrade_data(row), axis = 1)
+        logger.info("Done Robinhood")
 
-        df.loc[(df['Broker'] == "ET") | (df['Broker'] == "E2"), 'Broker Executed'] = df.loc[
-            (df['Broker'] == "ET") | (df['Broker'] == "E2"), 'Broker Executed'].apply(
-            lambda int64_time: convert_int64_utc_to_pst(int64_time))
+        logger.info("Processing ET/E2")
+        df = self._get_etrade_data(df)
+        logger.info("Done ET/E2")
+
+        # df.loc[(df['Broker'] == "ET") | (df['Broker'] == "E2"), 'Broker Executed'] = df.loc[
+        #     (df['Broker'] == "ET") | (df['Broker'] == "E2"), 'Broker Executed'].apply(
+        #     lambda int64_time: convert_int64_utc_to_pst(int64_time))
 
         df["Date"] = pd.to_datetime(df["Date"])
         df["Program Submitted"] = pd.to_datetime(df["Program Submitted"], format = '%X:%f')
@@ -212,8 +218,13 @@ class PostProcessing:
         split_idx = df.columns.get_loc("Split")
         df.insert(split_idx + 1, "BidAskSpread", '')
         df.insert(split_idx + 2, "TradeLocation", '')
-        df["BidAskSpread"] = (df["Pre Ask"] - df["Pre Bid"]).round(4)
 
+        df["BidAskSpread"] = df["Pre Ask"] - df["Pre Bid"]
+        df["BidAskSpread"] = pd.to_numeric(df["BidAskSpread"])
+        df["BidAskSpread"] = df["BidAskSpread"].round(4)
+
+        df["Price"] = pd.to_numeric(df["Price"])
+        df["Pre Bid"] = pd.to_numeric(df["Pre Bid"])
         df["TradeLocation"] = ((df["Price"] - df["Pre Bid"]) / df["BidAskSpread"]).round(4)
 
         # time formatting -> add text columns next to numeric time
@@ -240,21 +251,21 @@ class PostProcessing:
         df["Program Executed"] = df["Program Executed"].dt.strftime('%X:%f')
         df["Broker Executed"] = df["Broker Executed"].dt.strftime("%X")
 
-        underscore_idx = report_file.find("_")
-        filetype_idx = report_file.find(".")
-        filtered_filename = f'reports/filtered/report{report_file[underscore_idx:filetype_idx]}_filtered{self._output_file_version}.csv'
+        df = df[df["Date"].notna()]
+
+        filtered_filename = BASE_PATH / f'reports/filtered/report_{formatted_date.strftime("%m_%d")}_filtered{self._output_file_version}.csv'
         df.to_csv(filtered_filename, index = False)
 
-        end = time.time()
-        print(end - start, "seconds")
-        print("Output file:", filtered_filename)
+        end = time.perf_counter()
+        logger.info(f"{end - start} seconds")
+        logger.info(f"Output file: {filtered_filename}")
 
-        print(f"Number of Trades: {len(df['Symbol'].unique())}")
+        logger.info(f"Number of Trades: {len(df['Symbol'].unique())}")
 
 
 if __name__ == '__main__':
     processor = PostProcessing()
-    processor.optimized_generate_report(f"../../reports/original/report_08_15.csv",
+    processor.optimized_generate_report(BASE_PATH / f"reports/original/report_08_15.csv",
                                         )
     # processor.optimized_generate_report(f"../../reports/original/report_08_16.csv",
     #                                     ibkr_prices_file = '../../data/ibkr/original/DailyTradeReport.20230816.html',

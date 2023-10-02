@@ -7,8 +7,7 @@ from selenium.webdriver import Keys
 
 from brokers import IBKR_LOGIN, IBKR_PASSWORD, TDAmeritrade
 from utils.broker import Broker
-from utils.debugger import init_logging
-from utils.misc import repeat
+from utils.misc import repeat, repeat_on_fail
 from utils.report.report import BrokerNames, OrderType, ActionType
 from utils.selenium_helper import CustomChromeInstance
 from selenium.webdriver.common.by import By
@@ -83,7 +82,6 @@ class IBKR(Broker):
         self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
                          amount, "", "", pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None)
-
     def _try_search(self, first, alternative, error_msg = ""):
         try:
             return self._chrome_inst.find(By.XPATH, first)
@@ -95,6 +93,7 @@ class IBKR(Broker):
                     logger.error(error_msg)
                 else:
                     logger.error(f"Something went wrong while finding the element: {first}")
+                raise NoSuchElementException
 
     def _market_buy(self, sym: str, amount: int):
         sym_input = self._chrome_inst.waitForElementToLoad(By.ID, "cp-order-ticket-sl-input")
@@ -108,6 +107,15 @@ class IBKR(Broker):
         self._clear_quantity_input(amount)
 
         order_type_container = self._chrome_inst.find(By.ID, 'cp-ordertype-dropdown')
+
+        try:
+            time.sleep(1)
+
+            accept = self._chrome_inst.find(By.XPATH, '/html/body/div[1]/div[6]/div/div[2]/div[2]/button[2]')
+            accept.click()
+        except:
+            pass
+
         order_type_container.click()
 
         self._chrome_inst.sendKeys(Keys.DOWN)
@@ -183,7 +191,18 @@ class IBKR(Broker):
 
         self._clear_quantity_input(amount)
 
+        # make IBKR think you clicked something
         order_type_container = self._chrome_inst.find(By.ID, 'cp-ordertype-dropdown')
+
+        try:
+            time.sleep(1)
+
+            accept = self._chrome_inst.find(By.XPATH, '/html/body/div[1]/div[6]/div/div[2]/div[2]/button[2]')
+            accept.click()
+        except:
+            pass
+
+        # order_type_container = self._chrome_inst.find(By.ID, 'cp-ordertype-dropdown')
         order_type_container.click()
 
         self._chrome_inst.sendKeys(Keys.DOWN)
@@ -202,7 +221,7 @@ class IBKR(Broker):
                 '/html/body/div[5]/div/div[3]/div[1]/div/div[3]/table[2]/tr[2]/td[4]')
             print(sym, amount, post_trade_positions.text)
 
-            if '-' in post_trade_positions.text:
+            if '-' in post_trade_positions.text or float(post_trade_positions.text) > amount:
                 back = self._try_search('/html/body/div[6]/div/div[5]/div/div/button[1]',
                                         "/html/body/div[5]/div/div[5]/div/div/button[1]")
                 back.click()
@@ -260,7 +279,6 @@ class IBKR(Broker):
 
 
 if __name__ == '__main__':
-    init_logging()
     a = IBKR("temp.csv", BrokerNames.IF)
     a.login()
     # a.buy("PRTH", 2)

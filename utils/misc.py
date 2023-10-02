@@ -74,3 +74,6 @@ def generate_failure_log():
             json.dump(failure_logs, output, indent = 4)
 
 
+def save_content_to_file(content, file_name, mode="w"):
+    with open(file_name, mode) as file:
+        file.write(content)

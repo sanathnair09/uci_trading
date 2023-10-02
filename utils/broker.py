@@ -2,22 +2,20 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
+import pandas as pd
+
 from utils.report.report import OrderType, StockData, ReportEntry, ActionType, BrokerNames
 
-
+NULL_ENTRY = pd.Series(index = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol', 'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote', 'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume', 'Order Type', 'Split', 'Order ID', 'Activity ID'])
 class Broker(ABC):
     THRESHOLD = 1000
 
     def __init__(self, report_file: Union[Path, str], broker_name: BrokerNames):
         self._broker_name = broker_name
         self._executed_trades = []
-        if type(report_file) is not Path:
+        if not isinstance(report_file, Path):
             report_file = Path(report_file)
         self._report_file = report_file
-        if not self._report_file.exists():
-            self._report_file.touch()  # TODO: if changing the columns of report file also modify here
-            self._report_file.write_text(
-                "Date,Program Submitted,Program Executed,Broker Executed,Symbol,Broker,Action,Size,Price,Dollar Amt,Pre Quote,Post Quote,Pre Bid,Pre Ask,Post Bid,Post Ask,Pre Volume,Post Volume,Order Type,Split,Order ID,Activity ID\n")
 
     @abstractmethod
     def login(self):

@@ -9,6 +9,7 @@ from selenium.webdriver.support.select import Select
 
 from utils.broker import Broker
 from brokers import SCHWAB_LOGIN, SCHWAB_PASSWORD
+from utils.misc import save_content_to_file
 from utils.selenium_helper import CustomChromeInstance
 from utils.report.report import OrderType, ActionType, BrokerNames, StockData
 
@@ -57,7 +58,7 @@ class Schwab(Broker):
                 raise e
 
     def _collect_stock_data(self, sym: str):
-        symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
+        symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
         time.sleep(2)
@@ -75,12 +76,12 @@ class Schwab(Broker):
         return StockData(float(ask_price), float(bid_price), float(last_price), float(volume))
 
     def _market_buy(self, sym: str, amount: int):
-        symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
+        symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
         time.sleep(2)
         action_dropdown = Select(
-            self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_action"]'))
+            self._chrome_inst.find(By.XPATH, '//*[@id="_action"]'))
         action_dropdown.select_by_visible_text("Buy")
         # order_type_dropdown = Select(self._chrome_inst.find(By.XPATH, '//*[@id="order-type"]'))
         # order_type_dropdown.select_by_visible_text("Market")
@@ -97,15 +98,14 @@ class Schwab(Broker):
 
         self._chrome_inst.scroll(350)
         time.sleep(1)  # wait for page to load
-        place_order_btn = self._chrome_inst.waitForElementToLoad(By.XPATH,
-                                                                 '//*[@id="mtt-place-button"]')
+        place_order_btn = self._chrome_inst.find(By.XPATH,'//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(2)  # wait for trade page to load again
 
     def _market_sell(self, sym: str, amount: int):
-        symbol_elem = self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="_txtSymbol"]')
+        symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
         time.sleep(2)
@@ -126,7 +126,7 @@ class Schwab(Broker):
         review_order_btn.click()
         self._chrome_inst.scroll(350)
         time.sleep(1)
-        place_order_btn = self._chrome_inst.waitForElementToLoad(By.XPATH,
+        place_order_btn = self._chrome_inst.find(By.XPATH,
                                                                  '//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
@@ -145,12 +145,15 @@ class Schwab(Broker):
         self._chrome_inst.sendKeyboardInput(login_input_elem, SCHWAB_LOGIN)
         password_input_elem = self._chrome_inst.find(By.ID, "passwordInput")
         self._chrome_inst.sendKeyboardInput(password_input_elem, SCHWAB_PASSWORD)
-        temp = self._chrome_inst.waitForElementToLoad(By.XPATH,
+        temp = self._chrome_inst.find(By.XPATH,
                                                       '/html/body/div/lms-app-root/section/div/div/section/lms-login-one-step-container/lms-login-one-step/section/div[1]/div[6]/div/select')
         select_elem = Select(temp)
         select_elem.select_by_visible_text(page)
         self._chrome_inst.waitToClick("btnLogin")
-        time.sleep(2)  # TODO: use selenium wait
+        while self._chrome_inst.current_url() != "https://client.schwab.com/app/trade/tom/#/trade":
+            pass
+        time.sleep(5)  # TODO: use selenium wait
+        self._chrome_inst.resetFrame()
 
     def login(self):
         self._login("Trade Ticket")
@@ -158,7 +161,7 @@ class Schwab(Broker):
     def download_trade_data(self, date):
 
         date_range = Select(
-            self._chrome_inst.waitForElementToLoad(By.XPATH, '//*[@id="statements-daterange1"]')
+            self._chrome_inst.find(By.XPATH, '//*[@id="statements-daterange1"]')
         )
         date_range.select_by_visible_text("Custom")
 
@@ -185,9 +188,10 @@ class Schwab(Broker):
 
 
 if __name__ == '__main__':
-    # s = Schwab("temp.csv", BrokerNames.SB)
-    #
-    # s.login()
-    #
-    # time.sleep(3)
+    s = Schwab("temp.csv", BrokerNames.SB)
+    s.login()
+    s.buy("VRM", 1)
+    # time.sleep(5)
+    # s.sell("VRM", 1)
+
     pass

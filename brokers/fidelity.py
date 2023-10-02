@@ -1,13 +1,16 @@
 import time
 from datetime import datetime
+from io import StringIO
 
 import numpy as np
 import pandas as pd
+from bs4 import BeautifulSoup
 from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 
 from brokers import FIDELITY_LOGIN, FIDELITY_PASSWORD, BASE_PATH
 from utils.broker import Broker
+from utils.misc import save_content_to_file
 from utils.report.report import BrokerNames, OrderType, ActionType, StockData
 from utils.selenium_helper import CustomChromeInstance
 from selenium.webdriver.common.by import By
@@ -21,15 +24,27 @@ class Fidelity(Broker):
         self._chrome_inst.open("https://digital.fidelity.com/prgw/digital/login/full-page")
 
     def login(self):
-        login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="userId-input"]')
-        self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
-        password_input_elem = self._chrome_inst.find(By.ID, "password")
-        self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
-        self._chrome_inst.waitToClick("fs-login-button")
-        time.sleep(5)  # will have to play with time depending on your internet speeds
-        self._chrome_inst.open(
-            "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
-        time.sleep(1)
+        try:
+            login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="userId-input"]')
+            self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
+            password_input_elem = self._chrome_inst.find(By.ID, "password")
+            self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
+            self._chrome_inst.waitToClick("fs-login-button")
+            time.sleep(5)  # will have to play with time depending on your internet speeds
+            self._chrome_inst.open(
+                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+            time.sleep(1)
+        except:
+            login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-username-input"]')
+            self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
+            password_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-pswd-input"]')
+            self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
+            login_button = self._chrome_inst.find(By.XPATH, '//*[@id="dom-login-button"]')
+            login_button.click()
+            time.sleep(5)  # will have to play with time depending on your internet speeds
+            self._chrome_inst.open(
+                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+            time.sleep(1)
 
     def _get_stock_data(self, sym: str):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
@@ -178,23 +193,23 @@ class Fidelity(Broker):
 
     def get_trade_data(self):
         """
-        gets the information from the https://digital.fidelity.com/ftgw/digital/portfolio/activity
-        and stores it into a csv file to be used in the report generation
-        :return:
-        """
+                gets the information from the https://digital.fidelity.com/ftgw/digital/portfolio/activity
+                and stores it into a csv file to be used in the report generation
+                :return:
+                """
         self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
-        data_exists = input("Fidelity Continue? (Enter/n) ")
+        data_exists = input(
+            "Fidelity (load more results and close assitant bubble in bottom right corner) (Enter/n) ")
 
         if data_exists.upper() == "N":  # if you forgot to download data or run report early enough u can skip fidelity
             return None
 
         unopened = self._chrome_inst.get_page_source()
-
         try:  # super sus
             def get_xpath(row):
-                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-panel/div/div/orders-grid-container/div/div[3]/activity-order-grid[1]/div/div[2]/activity-common-grid/div/table/tbody[{row}]/tr/td[5]/pvd3-button/s-root/button'
+                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-panel/div/div/div/account-activity-container/div/div[3]/activity-list[1]/div/div[{row}]/div/div[5]'
 
-            x = 1
+            x = 3
             while True:
                 more_info = self._chrome_inst.find(By.XPATH, get_xpath(x))
                 more_info.click()
@@ -205,47 +220,47 @@ class Fidelity(Broker):
 
         opened = self._chrome_inst.get_page_source()
 
+        return self.parse_trade_data(unopened, opened)
+
+    @staticmethod
+    def parse_trade_data(unopened, opened):
         unopened_df = Fidelity._handle_unopened_data(unopened)
         opened_df = Fidelity._handle_opened_data(opened)
-
-        df = pd.merge(opened_df, unopened_df[['Symbol', 'Action']], left_on = 'Identifier',
+        df = pd.merge(left = opened_df, right = unopened_df, left_on = "Identifier",
                       right_index = True)
 
-        df["Broker Executed"] = df["Broker Executed"].str.slice(stop = -3)
-        df["Broker Executed"] = pd.to_datetime(df["Broker Executed"],
-                                               format = '%I:%M:%S %p', utc = False)
+        df["Broker Executed"] = pd.to_datetime(df["Broker Executed"], format = '%I:%M:%S %p ET',
+                                               utc = False) - pd.Timedelta(hours = 3)
+        df["Broker Executed"] = df["Broker Executed"].dt.strftime('%I:%M:%S')
         df["Price"] = df["Price"].str.slice(start = 1)
         df["Dollar Amt"] = df["Dollar Amt"].str.slice(start = 1)
-        df["Broker Executed"] = df["Broker Executed"] + pd.Timedelta(hours = -3)
 
-        return df[::-1]
+        new_df = df[::-1]
+
+        date = datetime.now().strftime("%m_%d")
+        new_df.to_csv(BASE_PATH / f'data/fidelity/fd_splits_{date}.csv', index = False)
+
+        return new_df
 
     @staticmethod
     def _handle_unopened_data(unopened_html):
-        df = pd.read_html(unopened_html)
+        unopened_df = pd.DataFrame()
+        soup = BeautifulSoup(unopened_html, 'html.parser')
+        class_to_find = "pvd-grid__grid pvd-grid__grid--default-column-span-12"
+        data = soup.find_all(class_ = class_to_find)
+        for row in data:
+            text = row.get_text(strip = True).split()
+            row_info = pd.Series([text[0], text[4]], index = ["Action", "Symbol"])
+            unopened_df = pd.concat([unopened_df, row_info.to_frame().T], ignore_index = True)
 
-        del df[1]  # remove the table at the bottom of page containing processed transactions
-        df = df[0]  # get the remaining df and reassign
-        df = df.drop(df.columns[[0, 2, 4]], axis = 1)  # remove Date, Nan, and Show Detail columns
-        df.rename(columns = {1: 'Info', 3: "Price"}, inplace = True)
-        df["Price"] = df["Price"].str.slice(start = 11).astype("float64")
+        unopened_df = unopened_df[
+            (unopened_df["Action"] == "Buy") | (unopened_df["Action"] == "Sell")]
 
-        df_temp = df["Info"].str.split(expand = True)
-        df = df.join(df_temp)
-        df.rename(
-            columns = {0: 'Action', 1: "Quantity", 2: "Shares",
-                       3: "of", 4: "Symbol", 5: "at",
-                       6: "type", 7: "when"}, inplace = True)
-        df = df.drop(["Shares", "of", "at", "type", "when", "Info"], axis = 1)
-
-        return df
+        return unopened_df
 
     @staticmethod
     def _handle_opened_data(opened):
-        df = pd.read_html(opened)
-
-        del df[0]  # junk table
-        del df[-1]  # table from bottom of page containing processed transactions
+        df = pd.read_html(StringIO(opened))
 
         # get the data from the individual split dfs and put them into a list
         prices = []
@@ -263,22 +278,24 @@ class Fidelity(Broker):
             res = np.append(res, x, axis = 0)
 
         # create a df with split info
-        splits_df = pd.DataFrame(res, columns = ["Date", "Broker Executed", "Price", "Quantity",
+        splits_df = pd.DataFrame(res, columns = ["Date", "Broker Executed", "Price", "Size",
                                                  "Dollar Amt", "Identifier"])
+
+        splits_df['Split'] = splits_df['Identifier'].duplicated(keep = False)
+
         return splits_df
 
     def download_trade_data(self):
         from datetime import datetime
         df = self.get_trade_data()
-        df.to_csv(
-            BASE_PATH / f'data/fidelity_splits/fd_splits_{datetime.now().strftime("%m_%d")}.csv',
-            index = False)
+        if isinstance(df, pd.DataFrame):
+            df.to_csv(
+                BASE_PATH / f'data/fidelity/fd_splits_{datetime.now().strftime("%m_%d")}.csv',
+                index = False)
 
 
 if __name__ == '__main__':
     a = Fidelity("temp.csv", BrokerNames.FD)
     a.login()
     a.download_trade_data()
-    # time.sleep(3)
-    # a.sell("VRM", 1)
-    # a.save_report()
+    pass

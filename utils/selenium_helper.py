@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
@@ -51,6 +52,7 @@ class CustomChromeInstance:
         # options.add_experimental_option("useAutomationExtension", False)
         self._driver = webdriver.Chrome(service = Service(), options = options)
         self._actions = ActionChains(self._driver)
+        # print(self._driver.service.path)
         # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})") 
 
     def __del__(self):
@@ -85,10 +87,8 @@ class CustomChromeInstance:
         element.click()
 
     def waitForElementToLoad(self, by, elem: str):
-        return WebDriverWait(self._driver, 10).until(
-            EC.presence_of_element_located(
-                (by, elem))
-        )
+        res = WebDriverWait(self._driver, 10).until(EC.presence_of_element_located((by, elem)))
+        return res
 
     def waitForTextInValue(self, by, elem, text: str):
         return WebDriverWait(self._driver, 10).until(
@@ -109,14 +109,11 @@ class CustomChromeInstance:
     def get_page_source(self):
         return self._driver.page_source
 
-    def quit(self):
-        if self._driver:
-            self._driver.quit()
-            self._driver = None
+    def current_url(self):
+        return self._driver.current_url
+    def get_elem_source(self, element: WebElement):
+        return element.get_attribute("outerHTML")
 
 
 if __name__ == '__main__':
-    inst = CustomChromeInstance()
-    inst.open("https://stackoverflow.com/questions/37398301/json-dumps-format-python")
-    inst.scroll(300)
-    inst.quit()
+    pass

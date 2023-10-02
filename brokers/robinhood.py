@@ -1,8 +1,9 @@
+import time
 from datetime import datetime
 from pathlib import Path
 
 import robin_stocks.robinhood as rh
-from brokers import RH_LOGIN, RH_PASSWORD
+from brokers import RH_LOGIN, RH_PASSWORD, RH_LOGIN2, RH_PASSWORD2
 from utils.broker import Broker
 from utils.misc import repeat_on_fail
 from utils.report.report import OrderType, StockData, ActionType, BrokerNames
@@ -27,34 +28,29 @@ class Robinhood(Broker):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
-        res = self._limit_buy(sym, amount,
-                              round(float(pre_stock_data.ask) * 1.05, 2))  # 5% above actual price
+        res = self._market_buy(sym, amount)  # 5% above actual price
 
         program_executed = datetime.now().strftime("%X:%f")  # when order went through
         post_stock_data = self._get_stock_data(sym)
 
         self._add_report(program_submitted, program_executed, None, sym, ActionType.BUY,
-                         amount, "", "", pre_stock_data, post_stock_data, OrderType.LIMIT,
+                         amount, "", "", pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, res["id"], None)
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
 
-        res = self._limit_sell(sym, amount,
-                               round(float(pre_stock_data.ask) * 0.95, 2))  # 5% below actual price
-        program_executed = datetime.now().strftime("%X:%f")  # when order went through
-        post_stock_data = self._get_stock_data(sym)
+        res = self._market_sell(sym, amount,)  # 5% below actual price
+        if 'id' in res:
+            program_executed = datetime.now().strftime("%X:%f")  # when order went through
+            post_stock_data = self._get_stock_data(sym)
 
-        self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
-                         amount, "", "", pre_stock_data, post_stock_data, OrderType.LIMIT,
-                         False, res["id"], None)
-
-    def _market_buy(self, sym: str, amount: int):
-        return NotImplementedError
-
-    def _market_sell(self, sym: str, amount: int):
-        return NotImplementedError
+            self._add_report(program_submitted, program_executed, None, sym, ActionType.SELL,
+                             amount, "", "", pre_stock_data, post_stock_data, OrderType.MARKET,
+                             False, res["id"], None)
+        elif "detail" in res:
+            raise ValueError("PDT Protection")
 
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
         return rh.order_buy_limit(sym, amount, limit_price, timeInForce = 'gfd',
@@ -65,6 +61,17 @@ class Robinhood(Broker):
         return rh.order_sell_limit(sym, amount, limit_price, timeInForce = 'gtc',
                                    extendedHours = False,
                                    jsonify = True)
+
+    def _market_buy(self, sym: str, amount: int):
+        return rh.order_buy_market(sym, amount, timeInForce = "gfd", extendedHours = False,
+                                   jsonify = True)
+
+
+    def _market_sell(self, sym: str, amount: int):
+        # for fractional on robinhood they have a method called
+        return rh.order_sell_market(sym, amount, timeInForce = "gfd", extendedHours = False,
+                                   jsonify = True)
+
 
     @repeat_on_fail()
     def _get_stock_data(self, sym: str):
@@ -77,13 +84,24 @@ class Robinhood(Broker):
         super().__init__(report_file, broker_name)
 
     def login(self):
+        """
+        if changing the login credentials go to your (HOME_DIR)/.tokens and delete the robinhood.pickle file
+        :return:
+        """
+        Robinhood.login_custom(account = "RH2")
+
+    @staticmethod
+    def login_custom(account = "RH"):
+        pickle_file = "1" if account == "RH" else "2"
+        username = RH_LOGIN if account == "RH" else RH_LOGIN2
+        password = RH_PASSWORD if account == "RH" else RH_PASSWORD2
         time_logged_in = 60 * 60 * 24 * 365
-        rh.authentication.login(username = RH_LOGIN,
-                                password = RH_PASSWORD,
+        rh.authentication.login(username = username,
+                                password = password,
                                 expiresIn = time_logged_in,
                                 scope = 'internal',
                                 by_sms = True,
-                                store_session = True)
+                                pickle_name = pickle_file)
 
     def get_current_positions(self):
         current_positions = []
@@ -96,4 +114,8 @@ class Robinhood(Broker):
 if __name__ == '__main__':
     r = Robinhood(Path("temp.csv"), BrokerNames.RH)
     r.login()
+    r.buy("MODN", 1)
+    time.sleep(2)
+    r.sell("MODN", 1)
+    r.save_report()
     # print(r._executed_trades)

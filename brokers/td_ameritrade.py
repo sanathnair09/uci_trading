@@ -24,9 +24,10 @@ class TDAmeritrade(Broker):
         return sym in client.get_quotes(sym).json()
 
     @staticmethod
-    def get_stock_amount(sym: str):
+    def get_stock_amount(sym: str) -> tuple[int, float]:
         client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
-        return calculate_num_stocks_to_buy(100, client.get_quotes(sym).json()[sym]['lastPrice'])
+        price = client.get_quotes(sym).json()[sym]['lastPrice']
+        return calculate_num_stocks_to_buy(100, price), price
 
     @staticmethod
     def get_stock_data(sym: str) -> StockData:

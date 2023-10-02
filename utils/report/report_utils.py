@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,10 @@ from pytz import utc, timezone
 
 from utils.report.report import ActionType
 
-
+COLUMN_ORDER = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
+                    'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
+                    'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
+                    'Order Type', 'Split', 'Order ID', 'Activity ID']
 def convert_int64_utc_to_pst(int64):
     try:
         utc_datetime = datetime.utcfromtimestamp(float(int64) / 1000)
@@ -22,6 +26,9 @@ def convert_int64_utc_to_pst(int64):
 
 def get_robinhood_data(row):
     order_data = rh.get_stock_order_info(row["Order ID"])
+    if order_data["state"] == "cancelled":
+        row[:] = None
+        return row
     try:
         utc_time = datetime.strptime(order_data["executions"][0]["timestamp"],
                                      "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -31,9 +38,12 @@ def get_robinhood_data(row):
     now_aware = utc.localize(utc_time)
     pst = now_aware.astimezone(timezone("US/Pacific"))
     row["Broker Executed"] = pst.strftime("%I:%M:%S")
-    row["Price"] = float(order_data["average_price"])
-    row["Size"] = float(order_data["cumulative_quantity"])
-    row["Dollar Amt"] = float(order_data["total_notional"]["amount"])
+    price = float(order_data["executions"][0]["price"])
+    size = float(order_data["executions"][0]["quantity"])
+
+    row["Price"] = price
+    row["Size"] = size
+    row["Dollar Amt"] = price * size
     return row
 
 
@@ -96,51 +106,97 @@ def optimized_calculate_bjzz(rounded_price):
 
 
 def get_ibkr_report(ibkr_file):
-    df = pd.read_html(ibkr_file)
-    df = df[1]
-    df.drop(index = df.index[:2], inplace = True)
-    df_sub = df[["Trade Date/Time", "Symbol", "Quantity", "Price", "Code"]]
-    df_sub = df_sub[df_sub["Code"].notna()]
-    df_sub["Code"] = df_sub["Code"].str[0]
-    df_sub["Action"] = np.where(df_sub["Code"] == "O", "Buy", "Sell")
-    df_sub = df_sub.drop("Code", axis = 1)
-    df_sub = df_sub.drop(df.index[-1])
-    df_sub["Trade Date/Time"] = pd.to_datetime(df_sub["Trade Date/Time"])
-    df_sub["Trade Date/Time"] = df_sub["Trade Date/Time"] - pd.Timedelta(hours = 3)
-    df_sub = df_sub.set_axis(["Broker Executed", "Symbol", "Quantity", "Price", "Action"], axis = 1)
-    df_sub["Quantity"] = df_sub["Quantity"].astype("int64").abs()
-    df_sub["Price"] = df_sub["Price"].astype("float64")
-    df_sub["Dollar Amt"] = (df_sub["Price"] * df_sub["Quantity"]).abs().round(2)
-    return df_sub
+    dfs = pd.read_html(ibkr_file)
+    df = dfs[1]
+    df = df.drop(df.index[[0, 1, -1, -2]])
+    df = df[df["Code"].notna()]
+    df = df[["Symbol", "Trade Date/Time", "Type", "Quantity", "Price"]].copy()
+
+    df["Trade Date/Time"] = pd.to_datetime(df["Trade Date/Time"], format = "%Y-%m-%d, %H:%M:%S")
+    df["Trade Date/Time"] = df["Trade Date/Time"] - pd.Timedelta(hours = 3)
+    df["Broker Executed"] = df["Trade Date/Time"].dt.strftime('%I:%M:%S')
+
+    df["Quantity"] = pd.to_numeric(df["Quantity"])
+    df["Quantity"] = df["Quantity"].abs()
+    df["Price"] = pd.to_numeric(df["Price"])
+    df["Dollar Amt"] = df["Quantity"] * df["Price"]
+
+    df = df.rename(columns = {
+        "Type": "Action",
+        "Quantity": "Size"
+    })
+
+    df["Action"] = df["Action"].str.capitalize()
+    return df
 
 
 def get_schwab_report(schwab_file):
     with open(schwab_file, "r") as file:
         data = json.load(file)
-        stringify = json.dumps(data["brokerageTransactions"])
-        df = pd.read_json(stringify)
+        df = pd.DataFrame.from_dict(data["brokerageTransactions"])
         df_sub = df[["transactionDate", "action", "symbol", "shareQuantity", "executionPrice"]]
         df_sub = df_sub.rename(columns = {
             "transactionDate": "Broker Executed",
             "action": "Action",
             "symbol": "Symbol",
-            "shareQuantity": "Quantity",
+            "shareQuantity": "Size",
             "executionPrice": "Price"
         })
-        df_sub["Price"] = df_sub["Price"].str[1:].astype("float64")
-        df_sub["Dollar Amt"] = df_sub["Price"] * df_sub["Quantity"]
+        df_sub["Size"] = pd.to_numeric(df_sub["Size"])
+        df_sub["Price"] = df_sub["Price"].str[1:]
+        df_sub["Price"] = pd.to_numeric(df_sub["Price"])
+        df_sub["Dollar Amt"] = df_sub["Price"] * df_sub["Size"]
         return df_sub
+
 
 def create_datetime_from_string(date_string):
     # Use regular expression to extract month and day values
-    match = re.search(r"report_(\d{2})_(\d{2})", date_string)
-    if match:
-        month = int(match.group(1))
-        day = int(match.group(2))
+    if isinstance(date_string, Path):
+        date_string = str(date_string)
+    parts = date_string.split("_")
+    month = int(parts[1])
+    day = int(parts[2][:2])
 
-        # Create a datetime object with the extracted month and day
-        datetime_obj = datetime(datetime.now().year, month, day)
-        return datetime_obj
-    else:
-        print("Invalid input string format")
-        return None
+    # Create a datetime object with the extracted month and day
+    datetime_obj = datetime(datetime.now().year, month, day)
+    return datetime_obj
+
+def parse_etrade_report(df):
+    df["Date & Time"] = pd.to_datetime(df["Date & Time"], format="%m/%d/%y %I:%M:%S %p EDT")
+    df["Date & Time"] = df["Date & Time"] - pd.Timedelta(hours = 3)
+
+    df[["Action", "Symbol"]] = df["Order Description"].str.split(expand = True)[[0, 2]]
+
+    df = df.drop(columns = ["Order Description", "Commission/Fee", "Transaction Status"])
+    df = df.drop([0])
+
+    df["Price Executed"] = pd.to_numeric(df["Price Executed"])
+    df["Dollar Amt"] = df["Quantity"] * df["Price Executed"]
+
+    df["Broker Executed"] = df["Date & Time"].dt.strftime('%I:%M:%S')
+
+    df = df.rename(columns = {
+        "Quantity": "Size",
+        "Price Executed": "Price",
+    })
+    return df
+
+def merge_etrade_report(report_df, etrade_df, et_acc):
+    merged = pd.merge(left = report_df, right = etrade_df, on = ["Date", "Symbol", "Action", "Broker"])
+    merged["Split"] = True
+    merged = merged.drop(columns = ["Size_x", "Price_x", "Dollar Amt_x", "Broker Executed_x"])
+    merged = merged.rename(columns = {
+        "Size_y": "Size",
+        "Price_y": "Price",
+        "Dollar Amt_y": "Dollar Amt",
+        "Broker Executed_y": "Broker Executed"
+    })
+
+    merged = merged.reindex(columns = COLUMN_ORDER)
+    et = report_df[report_df["Broker"] == et_acc]
+    report_df = report_df.drop(et[et["Order ID"].isin(merged["Order ID"])].index)
+    report_df = pd.concat([report_df, merged], ignore_index = True)
+
+    return report_df
+
+

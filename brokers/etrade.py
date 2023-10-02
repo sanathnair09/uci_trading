@@ -1,22 +1,25 @@
 import time
+import warnings
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 from random import randint
 from typing import Union
 
+import pandas as pd
 import pyetrade
 from loguru import logger
+from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from brokers import ETRADE_CONSUMER_KEY, ETRADE_CONSUMER_SECRET, ETRADE_LOGIN, ETRADE_PASSWORD, \
-    ETRADE_ACCOUNT_ID
+    ETRADE_ACCOUNT_ID_KEY, BASE_PATH
 from brokers import ETRADE2_CONSUMER_KEY, ETRADE2_CONSUMER_SECRET, ETRADE2_LOGIN, ETRADE2_PASSWORD, \
-    ETRADE2_ACCOUNT_ID
+    ETRADE2_ACCOUNT_ID_KEY
 from utils.broker import Broker
-from utils.misc import repeat_on_fail
+from utils.misc import repeat_on_fail, save_content_to_file
 from utils.report.report import StockData, ActionType, OrderType, BrokerNames
 from utils.selenium_helper import CustomChromeInstance
 
@@ -36,13 +39,13 @@ class ETrade(Broker):
             self._consumer_secret = ETRADE_CONSUMER_SECRET
             self._login = ETRADE_LOGIN
             self._password = ETRADE_PASSWORD
-            self._account_id = ETRADE_ACCOUNT_ID
+            self._account_id = ETRADE_ACCOUNT_ID_KEY
         else:
             self._consumer_key = ETRADE2_CONSUMER_KEY
             self._consumer_secret = ETRADE2_CONSUMER_SECRET
             self._login = ETRADE2_LOGIN
             self._password = ETRADE2_PASSWORD
-            self._account_id = ETRADE2_ACCOUNT_ID
+            self._account_id = ETRADE2_ACCOUNT_ID_KEY
 
     def login(self):
         """
@@ -86,9 +89,9 @@ class ETrade(Broker):
                     (By.XPATH, "/html/body/div[2]/div/div/input"))
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
-        except:
+        except Exception as e:
             chrome_inst.quit()
-            logger.error("Error logging in automatically. Trying Manually...")
+            logger.error("Error logging in automatically. Trying Manually...", e)
             # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key,
                                          self._consumer_secret)
@@ -126,48 +129,34 @@ class ETrade(Broker):
         return StockData(float(quote['All']['ask']), float(quote['All']['bid']),
                          float(quote['All']['lastTrade']), float(quote['All']['totalVolume']))
 
-    def get_order_data(self, sym: list[str], orderId, from_date, to_date):
-        """
-        from_date and to_date: formatted in MMDDYYYY
-        in the event the program gave you incorrect data you can manually query etrade for the data using this method
-        """
-        orderId = str(orderId)
+    def get_order_data(self, orderId):
         data = self._orders.list_orders(account_id_key = self._account_id, resp_format = "json",
-                                        symbol = sym, from_date = from_date, to_date = to_date)[
-            "OrdersResponse"]
-        pagination = True
-        while pagination:
-            try:
-                marker = data["marker"]
-            except KeyError:
-                marker = ''
-                pagination = False
+                                        orderId = str(orderId))
+        events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
-            data = data["Order"]
-            for entry in data:
-                if str(entry["orderId"]) == orderId:
-                    return entry
-            if marker != '':
-                data = self._orders.list_orders(account_id_key = self._account_id,
-                                                resp_format = "json",
-                                                symbol = sym, from_date = from_date,
-                                                to_date = to_date, marker = marker)[
-                    "OrdersResponse"]
-            else:
-                data = self._orders.list_orders(account_id_key = self._account_id,
-                                                resp_format = "json",
-                                                symbol = sym, from_date = from_date,
-                                                to_date = to_date)[
-                    "OrdersResponse"]
-        return None
+        splits_df = pd.DataFrame()
+        for event in events:
+            if event["name"] == "ORDER_EXECUTED":
+                size = event["Instrument"][0]["filledQuantity"]
+                price = event["Instrument"][0]["averageExecutionPrice"]
+                info = pd.Series({
+                    "Broker Executed": event['dateTime'],
+                    "Size": size,
+                    "Price": price,
+                    "Action": event["Instrument"][0]["orderAction"],
+                    "Dollar Amt": size * price
+                })
+                splits_df = pd.concat([splits_df, info.to_frame().T], ignore_index = True)
+
+        return splits_df
 
     @repeat_on_fail()
-    def _get_latest_order(self) -> _ETradeOrderInfo:
+    def _get_latest_order(self, orderID) -> _ETradeOrderInfo:
         """
         ETrade API: https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/OrdersResponse
         """
         order_data = \
-            self._orders.list_orders(account_id_key = self._account_id, resp_format = "json")[
+            self._orders.list_orders(account_id_key = self._account_id, resp_format = "json", orderId = orderID)[
                 "OrdersResponse"]["Order"][0]
         orderId = order_data["orderId"]
         order_data = order_data["OrderDetail"][0]
@@ -188,13 +177,13 @@ class ETrade(Broker):
         program_submitted = datetime.now().strftime("%X:%f")
 
         ### BUY ###
-        self._market_buy(sym, amount)
+        orderID = self._market_buy(sym, amount)
 
         ### POST BUY INFO ###
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = self._get_stock_data(sym)
 
-        order_data = self._get_latest_order()
+        order_data = self._get_latest_order(orderID)
 
         self._add_report(program_submitted, program_executed, order_data.broker_executed, sym,
                          ActionType.BUY, order_data.quantity, order_data.price,
@@ -207,13 +196,13 @@ class ETrade(Broker):
         program_submitted = datetime.now().strftime("%X:%f")
 
         ### BUY ###
-        self._market_sell(sym, amount)
+        orderID = self._market_sell(sym, amount)
 
         ### POST BUY INFO ###
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = self._get_stock_data(sym)
 
-        order_data = self._get_latest_order()
+        order_data = self._get_latest_order(orderID)
 
         self._add_report(program_submitted, program_executed, order_data.broker_executed, sym,
                          ActionType.SELL, order_data.quantity, order_data.price,
@@ -221,19 +210,22 @@ class ETrade(Broker):
                          False, order_data.orderId, None)
 
     def _market_buy(self, sym: str, amount: int):
-        self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
+        res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
                                         orderAction = "BUY",
                                         clientOrderId = str(randint(100000, 999999)),
                                         priceType = "MARKET", quantity = amount,
                                         orderTerm = "GOOD_FOR_DAY", marketSession = "REGULAR")
 
+        return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
+
     def _market_sell(self, sym: str, amount: int):
-        self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
+        res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
                                         orderAction = "SELL",
                                         clientOrderId = str(randint(100000, 999999)),
                                         priceType = "MARKET", quantity = amount,
                                         orderTerm = "GOOD_FOR_DAY",
                                         marketSession = "REGULAR")
+        return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
 
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
@@ -254,26 +246,14 @@ class ETrade(Broker):
 
         return current_positions
 
-    def temp(self, transaction_id):
-        data = self._accounts.list_transactions(account_id_key = self._account_id,
-                                                resp_format = "json")
-        return data
-
 
 if __name__ == '__main__':
-    brokers = [
-        ETrade(Path("temp.csv"), BrokerNames.ET),
-        # ETrade(Path("temp.csv"), BrokerNames.E2)
-    ]
-    for broker in brokers:
-        broker.login()
-    a = brokers[0].get_order_data(["WH"], 38330, "06232023", "06242023")
-    print(a)
-    # for broker in brokers:
-    #     broker.buy("VRM", 1)
-    #     time.sleep(1)
-    #     broker.save_report()
-    # for broker in brokers:
-    #     broker.sell("VRM", 1)
-    #     time.sleep(1)
-    #     broker.save_report()
+    et = ETrade(Path("temp.csv"), BrokerNames.ET)
+    et.login()
+    # print(et.get_order_data(41307))
+    et.buy("VRM", 1),
+    time.sleep(3),
+    pos = et.get_current_positions()
+    print(pos)
+    for sym, amt in pos:
+        et.sell(sym, amt)
