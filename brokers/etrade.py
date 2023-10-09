@@ -62,15 +62,15 @@ class ETrade(Broker):
             chrome_inst.get(oauth.get_request_token())
             login_element = WebDriverWait(chrome_inst, 5).until(
                 EC.presence_of_element_located(
-                    (By.ID, "user_orig"))
+                    (By.XPATH, '//*[@id="USER"]'))
             )
             login_element.clear()
             login_element.send_keys(self._login)
-            password_element = chrome_inst.find_element(By.ID, "PASSWORD")
+            password_element = chrome_inst.find_element(By.XPATH, '//*[@id="password"]')
             password_element.clear()
             password_element.send_keys(self._password)
             time.sleep(1)
-            chrome_inst.find_element(By.ID, "logon_button").click()
+            chrome_inst.find_element(By.XPATH, '//*[@id="mfaLogonButton"]').click()
             if self._broker_name == BrokerNames.ET:
                 button = WebDriverWait(chrome_inst, 5).until(
                     EC.presence_of_element_located(
@@ -90,8 +90,9 @@ class ETrade(Broker):
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
         except Exception as e:
+            print("e", e)
             chrome_inst.quit()
-            logger.error("Error logging in automatically. Trying Manually...", e)
+            logger.error("Error logging in automatically. Trying Manually...")
             # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key,
                                          self._consumer_secret)
@@ -248,12 +249,7 @@ class ETrade(Broker):
 
 
 if __name__ == '__main__':
-    et = ETrade(Path("temp.csv"), BrokerNames.ET)
+    et = ETrade(Path("temp.csv"), BrokerNames.E2)
     et.login()
-    # print(et.get_order_data(41307))
-    et.buy("VRM", 1),
-    time.sleep(3),
     pos = et.get_current_positions()
     print(pos)
-    for sym, amt in pos:
-        et.sell(sym, amt)

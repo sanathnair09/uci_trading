@@ -92,6 +92,7 @@ class Robinhood(Broker):
 
     @staticmethod
     def login_custom(account = "RH"):
+        account = account.upper()
         pickle_file = "1" if account == "RH" else "2"
         username = RH_LOGIN if account == "RH" else RH_LOGIN2
         password = RH_PASSWORD if account == "RH" else RH_PASSWORD2

@@ -209,6 +209,7 @@ class PostProcessing:
         post_vol_idx = df.columns.get_loc("Post Volume")
         df.insert(post_vol_idx + 1, "First", 0)
         df.insert(post_vol_idx + 2, "BigTrade", 0)
+        df.loc[(df["Size"] == 100) & (df["Broker"] == "FD"), ["BigTrade"]] = 1
         df.insert(post_vol_idx + 3, "TradeID", '')
 
         df["TradeID"] = df["Date"].dt.year.astype(str) + df["Date"].dt.month.map(
@@ -250,6 +251,9 @@ class PostProcessing:
         df["Program Submitted"] = df["Program Submitted"].dt.strftime('%X:%f')
         df["Program Executed"] = df["Program Executed"].dt.strftime('%X:%f')
         df["Broker Executed"] = df["Broker Executed"].dt.strftime("%X")
+
+        df["Action"] = df["Action"].map({"Buy": 1, "Sell": -1})
+        df["Split"] = df["Split"].map({True: 1, False: 0})
 
         df = df[df["Date"].notna()]
 

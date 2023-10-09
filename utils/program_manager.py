@@ -8,22 +8,34 @@ from loguru import logger
 from brokers import BASE_PATH
 
 
+# SYM_LIST = [
+#     'UNF', 'WH', 'ODFL', 'NOTV', 'GRWG', 'RAPT', 'WTFC', 'CAPR', 'XOM', 'OPRT', 'BYN',  # 10
+#     'SHLS', 'AGL', 'BATL', 'HEAR', 'SCHL', 'IFF', 'EDUC', 'AAP', 'PANW',  # 20
+#     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
+#     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
+#     'CTMX', 'BYNO', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
+#     'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
+#     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
+#     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
+#     'VNDA', 'TDG', 'ICAD', 'LXRX', 'EW', 'AMP', 'MODN', 'NRG', 'FRBA', 'GIS',  # 90
+#     'SCKT', 'AMC', 'KNDI', 'ATRA', 'KVSA', 'AVO', 'SMAP', 'PACK', 'NTAP', 'PLPC',  # 100 AAWW
+#     'GOOG', 'RM', 'APLS', 'ICCC', 'PROV', 'GEVO', 'RWOD', 'WMPN', 'AWR', 'DCTH',  # 110
+#     'SXI', 'DHIL', 'CDNA', 'MMI', 'YHGJ', 'GBCI', 'AAPL', 'SSNC', 'TCRX', 'OPK',  # 120
+#     'FFIV', 'AGX', 'PTLO', 'LUNG', 'CPK', 'TACT', 'SIX', 'GS', 'PXLW', 'GWRE',  # 130 KNBE
+#     'WBS', 'ALB', 'CCVI'  # 133 'BYN' moved
+# ]
 SYM_LIST = [
-    'UNF', 'WH', 'ODFL', 'NOTV', 'GRWG', 'RAPT', 'WTFC', 'CAPR', 'XOM', 'OPRT', 'BYN',  # 10
-    'SHLS', 'AGL', 'BATL', 'HEAR', 'SCHL', 'IFF', 'EDUC', 'AAP', 'PANW',  # 20
-    'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
-    'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
-    'CTMX', 'BYNO', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
-    'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
-    'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
-    'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
-    'VNDA', 'TDG', 'ICAD', 'LXRX', 'EW', 'AMP', 'MODN', 'NRG', 'FRBA', 'GIS',  # 90
-    'SCKT', 'AMC', 'KNDI', 'ATRA', 'KVSA', 'AVO', 'SMAP', 'PACK', 'NTAP', 'PLPC',  # 100 AAWW
-    'GOOG', 'RM', 'APLS', 'ICCC', 'PROV', 'GEVO', 'RWOD', 'WMPN', 'AWR', 'DCTH',  # 110
-    'SXI', 'DHIL', 'CDNA', 'MMI', 'CTIB', 'GBCI', 'AAPL', 'SSNC', 'TCRX', 'OPK',  # 120
-    'FFIV', 'AGX', 'PTLO', 'LUNG', 'CPK', 'TACT', 'SIX', 'GS', 'PXLW', 'GWRE',  # 130 KNBE
-    'WBS', 'ALB', 'CCVI'  # 133 'BYN' moved
+    "AMTB", "AMTX", "BCC", "BV", "CVCO", "DUNE", "GLT", "HEI", "HONE", "NOV", "NVDA",
+    "PRTH", "TRV", "WRB", "DCTH", "KVSA", "PLPC", "PCYG", "ENER", "XOM", "W", "OXM",
+    "SSNC", "NXTC", "BYN", "GBCI", "GS", "AAPL", "TDG", "AVO", "ASB", "DISH", "BBSI",
+    "RAMP", "V", "WMPN", "APT", "CRS", "AMC", "CPK", "DWAC", "KNDI", "IMNM", "ICAD",
+    "SIX", "CVLY", "ANIP", "APLS", "UNF", "CDNA", "HEAR", "ROOT", "MSI", "GRWG", "MICS",
+    "PTLO", "LXRX", "TCRX", "RWOD", "EW", "NTAP", "SMAP", "GO", "PANW", "POWW", "ATRA",
+    "MODN", "PXLW", "AGL", "EDUC", "ZUMZ", "FFIV", "WH", "GOOG", "WTFC", "BYNO", "PVH",
+    "PFMT", "AWR", "FRBA", "GIS", "RAPT", "CSX", "DTOC", "SXI", "ICCC", "LUNG", "ADRT",
+    "VNDA", "CAPR", "PACK", "TSLA"
 ]
+
 STOCK_LIST_LEN = len(SYM_LIST)
 
 REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
