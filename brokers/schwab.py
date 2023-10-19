@@ -101,7 +101,10 @@ class Schwab(Broker):
         place_order_btn = self._chrome_inst.find(By.XPATH,'//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
-        self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
+        time.sleep(1)
+        new_order_btn = self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-footer"]/div/div/button[3]')
+        new_order_btn.click()
+        # self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(2)  # wait for trade page to load again
 
     def _market_sell(self, sym: str, amount: int):
@@ -130,7 +133,10 @@ class Schwab(Broker):
                                                                  '//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
-        self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
+        time.sleep(1)
+        new_order_btn = self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-footer"]/div/div/button[3]')
+        new_order_btn.click()
+        # self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(2)  # wait for trade page to load again
 
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
@@ -191,7 +197,7 @@ if __name__ == '__main__':
     s = Schwab("temp.csv", BrokerNames.SB)
     s.login()
     s.buy("VRM", 1)
-    # time.sleep(5)
-    # s.sell("VRM", 1)
+    time.sleep(5)
+    s.sell("VRM", 1)
 
     pass
