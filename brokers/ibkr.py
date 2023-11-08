@@ -1,6 +1,8 @@
 import time
 from datetime import datetime
+from io import StringIO
 
+import pandas as pd
 from loguru import logger
 from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
@@ -274,14 +276,25 @@ class IBKR(Broker):
 
         time.sleep(1)
 
-    def get_current_positions(self):
-        pass
+    def get_current_positions(self) -> list[tuple[str, float]]:
+        # TODO: possible ● character
+        self._chrome_inst.open("https://portal.interactivebrokers.com/portal/?action=ACCT_MGMT_MAIN&loginType=1&clt=0#/portfolio")
+        time.sleep(2)
+        positions = []
+        try:
+            page_source = self._chrome_inst.get_page_source()
+            df = pd.read_html(StringIO(page_source))
+            print(df[0])
+            df = df[0]
+            positions = df[["Instrument", "Position"]].to_numpy()
+            positions = [(x[0], float(x[1])) for x in positions]
+        except:
+            pass
+        return positions
 
 
 if __name__ == '__main__':
     a = IBKR("temp.csv", BrokerNames.IF)
     a.login()
-    # a.buy("PRTH", 2)
-    # time.sleep(3)
-    a.sell("VRM", 2)
-    a.save_report()
+    a.get_current_positions()
+    pass

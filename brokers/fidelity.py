@@ -180,16 +180,26 @@ class Fidelity(Broker):
         return NotImplementedError
 
     def get_current_positions(self):
+        """
+        used to automtically sell left over positions
+        :return: list of (symbol, amount)
+        """
         self._chrome_inst.open("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
         time.sleep(4)  # depends on internet speed but min 2 seconds for animation
         download_csv_positions = self._chrome_inst.waitForElementToLoad(By.XPATH,
                                                                         '//*[@id="posweb-grid_top-presetviews_refresh_settings_share"]/div[2]/div[4]/button')
         download_csv_positions.click()
-        import glob, \
-            pandas as pd  # this code assumes that there are no csv files in the main trading directory which there shouldn't be
-        file = glob.glob("/Users/sanathnair/Developer/trading/*.csv")[0]
+        time.sleep(5) # wait for file to download
+        import glob
+        # this code assumes that there are no csv files in the main trading directory which there shouldn't be
+        file = glob.glob("/Users/sanathnair/Developer/trading/data/*.csv")[0]
         df = pd.read_csv(file)
-        df = df.tail(-1)  # delete the first row of the csv
+        df = df.drop(df.index[[0, -1, -2, -3, -4]]) # only keep rows with stock info
+        positions = [(sym, quantity) for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()]
+        self._chrome_inst.open("https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+        time.sleep(3)
+        return positions
+
 
     def get_trade_data(self):
         """
@@ -207,14 +217,14 @@ class Fidelity(Broker):
         unopened = self._chrome_inst.get_page_source()
         try:  # super sus
             def get_xpath(row):
-                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-panel/div/div/div/account-activity-container/div/div[3]/activity-list[1]/div/div[{row}]/div/div[5]'
+                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/div/account-activity-container/div/div[3]/activity-list[1]/div/div[{row}]'
 
             x = 3
             while True:
                 more_info = self._chrome_inst.find(By.XPATH, get_xpath(x))
                 more_info.click()
                 x += 1
-        except:
+        except Exception as e:
             # done opening all the tabs
             pass
 
@@ -250,6 +260,8 @@ class Fidelity(Broker):
         data = soup.find_all(class_ = class_to_find)
         for row in data:
             text = row.get_text(strip = True).split()
+            if len(text) != 8:
+                break
             row_info = pd.Series([text[0], text[4]], index = ["Action", "Symbol"])
             unopened_df = pd.concat([unopened_df, row_info.to_frame().T], ignore_index = True)
 

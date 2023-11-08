@@ -32,13 +32,13 @@ SYM_LIST = [
     "SIX", "CVLY", "ANIP", "APLS", "UNF", "CDNA", "HEAR", "ROOT", "MSI", "GRWG", "MICS",
     "PTLO", "LXRX", "TCRX", "RWOD", "EW", "NTAP", "SMAP", "GO", "PANW", "POWW", "ATRA",
     "MODN", "PXLW", "AGL", "EDUC", "ZUMZ", "FFIV", "WH", "GOOG", "WTFC", "BYNO", "PVH",
-    "PFMT", "AWR", "FRBA", "GIS", "RAPT", "CSX", "DTOC", "SXI", "ICCC", "LUNG", "ADRT",
+    "PFMT", "AWR", "FRBA", "GIS", "RAPT", "CSX",  "SXI", "ICCC", "LUNG", "ADRT", # removed DTOC
     "VNDA", "CAPR", "PACK", "TSLA"
 ]
 
 STOCK_LIST_LEN = len(SYM_LIST)
 
-REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
+REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Execuoted', 'Broker Executed', 'Symbol',
                   'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
                   'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
                   'Order Type', 'Split', 'Order ID', 'Activity ID']

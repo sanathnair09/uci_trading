@@ -214,7 +214,7 @@ class ETrade(Broker):
         res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
                                         orderAction = "BUY",
                                         clientOrderId = str(randint(100000, 999999)),
-                                        priceType = "MARKET", quantity = amount,
+                                        priceType = "MARKET", quantity = int(amount),
                                         orderTerm = "GOOD_FOR_DAY", marketSession = "REGULAR")
 
         return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
@@ -223,7 +223,7 @@ class ETrade(Broker):
         res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
                                         orderAction = "SELL",
                                         clientOrderId = str(randint(100000, 999999)),
-                                        priceType = "MARKET", quantity = amount,
+                                        priceType = "MARKET", quantity = int(amount),
                                         orderTerm = "GOOD_FOR_DAY",
                                         marketSession = "REGULAR")
         return res["PlaceOrderResponse"]["OrderIds"]["orderId"]

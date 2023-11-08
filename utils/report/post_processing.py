@@ -38,7 +38,7 @@ class PostProcessing:
         Robinhood.login_custom(account = rh_acc)
         self._brokers = {
             'ET': ETrade('', BrokerNames.ET),
-            'E2': ETrade('', BrokerNames.E2),
+            # 'E2': ETrade('', BrokerNames.E2),
             'FD': Fidelity('', BrokerNames.FD)
         }
         for broker in self._brokers.values():
@@ -75,7 +75,8 @@ class PostProcessing:
         ibkr_file = BASE_PATH / f"data/ibkr/DailyTradeReport.{date.strftime('%Y%m%d')}.html"
         fidelity_file = BASE_PATH / f"data/fidelity/fd_splits_{date.strftime('%m_%d')}.csv"
 
-        schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.json"
+        # schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.json"
+        schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.csv"
 
         ibkr_df = get_ibkr_report(ibkr_file) if check_file_existence(ibkr_file) else None
         fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else self._brokers["FD"].get_trade_data()
@@ -268,19 +269,4 @@ class PostProcessing:
 
 
 if __name__ == '__main__':
-    processor = PostProcessing()
-    processor.optimized_generate_report(BASE_PATH / f"reports/original/report_08_15.csv",
-                                        )
-    # processor.optimized_generate_report(f"../../reports/original/report_08_16.csv",
-    #                                     ibkr_prices_file = '../../data/ibkr/original/DailyTradeReport.20230816.html',
-    #                                     get_fidelity = False)
-    # processor.optimized_generate_report(f"../../reports/original/report_08_17.csv",
-    #                                     ibkr_prices_file = '../../data/ibkr/original/DailyTradeReport.20230817.html',
-    #                                     fidelity_splits_file = '../../data/fidelity/fd_splits_08_17.csv')
-    # processor.optimized_generate_report(f"../../reports/original/report_08_18.csv",
-    #                                     ibkr_prices_file = '../../data/ibkr/original/DailyTradeReport.20230818.html',
-    #                                     fidelity_splits_file = '../../data/fidelity/fd_splits_08_18.csv')
-    # processor.optimized_generate_report(f"../../reports/original/report_08_21.csv",
-    #                                     ibkr_prices_file = '../../data/ibkr/original/DailyTradeReport.20230821.html',
-    #                                     fidelity_splits_file = 'data/fidelity/fd_splits_08_21.csv')
     pass

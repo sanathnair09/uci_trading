@@ -1,6 +1,8 @@
 import time
 from datetime import datetime
+from io import StringIO
 
+import pandas as pd
 from loguru import logger
 from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
@@ -189,15 +191,30 @@ class Schwab(Broker):
         input("Approved Download?")
 
 
-    def get_current_positions(self):
-        pass
+    def get_current_positions(self) -> list[tuple[str, float]]:
+        """
+        used to automtically sell left over positions
+        :return: list of (symbol, amount)
+        """
+        self._chrome_inst.open("https://client.schwab.com/app/accounts/positions/#/")
+        positions = []
+        try:
+            time.sleep(5)
+            page_source = self._chrome_inst.get_page_source()
+            df = pd.read_html(StringIO(page_source))
+            df = df[0]
+            df = df.drop(df.index[[0,-1, -2, -3, -4, -5]])
+            positions = df[["Symbol", "Quantity"]].to_numpy()
+            positions = [(x[0], float(x[1])) for x in positions]
+        except Exception as e:
+            print("Error getting current positions", e)
+        self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
+        time.sleep(3)
+        return positions
+
 
 
 if __name__ == '__main__':
     s = Schwab("temp.csv", BrokerNames.SB)
     s.login()
-    s.buy("VRM", 1)
-    time.sleep(5)
-    s.sell("VRM", 1)
-
     pass

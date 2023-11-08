@@ -24,10 +24,7 @@ class AutomatedTrading:
         self._brokers = [
             [TDAmeritrade(report_file, BrokerNames.TD), ],
             [Robinhood(report_file, BrokerNames.RH), ],
-            [
-                ETrade(report_file, BrokerNames.ET),
-                # ETrade(report_file, BrokerNames.E2),
-            ],
+            [ETrade(report_file, BrokerNames.ET),],
             [Fidelity(report_file, BrokerNames.FD)],
             [IBKR(report_file, BrokerNames.IF)],
             [Schwab(report_file, BrokerNames.SB)],
@@ -49,7 +46,7 @@ class AutomatedTrading:
 
         buy_time = datetime.now() + timedelta(minutes = 1)
         sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
-        temp = 22  # 22 * 4 = 88 => get through 88 stocks ideally
+        temp = STOCK_LIST_LEN // 4  # 22 * 4 = 88 => get through 88 stocks ideally
         while temp > 0:
             sym_list = SYM_LIST[current_idx:current_idx + 4]  # chooses next 4 stocks to trade
             logger.info(f"Buying at: {buy_time.strftime('%H:%M')}")
@@ -58,16 +55,16 @@ class AutomatedTrading:
             # randomly order brokers for each group
             # since we only trade one of each we don't need to shuffle inner list individually
             random.shuffle(self._brokers)
-
             # randomly choose fractional price to trade
-            fractional = random.choice(self._fractionals)
+
+            # fractional = random.choice(self._fractionals)
 
             schedule.every().day.at(buy_time.strftime("%H:%M")).do(self._buy_across_brokers,
                                                                    sym_list = sym_list,
-                                                                   fractional = fractional,
-                                                                   brokers = self._brokers)
+                                                                   fractional = None,
+                                                                   brokers = self._brokers[:]) # create new copy
             schedule.every().day.at(sell_time.strftime("%H:%M")).do(self._sell_across_brokers,
-                                                                    brokers = self._brokers)
+                                                                    brokers = self._brokers[:])
 
             buy_time = sell_time + timedelta(minutes = self._time_between_groups)
             sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
@@ -101,7 +98,7 @@ class AutomatedTrading:
             for broker in group:
                 try:
                     leftover = broker.get_current_positions()
-                    to_sell = [(int(amount), sym) for sym, amount in leftover if sym in SYM_LIST]
+                    to_sell = [(float(amount), sym) for sym, amount in leftover if sym in SYM_LIST]
                     print(broker.name(), to_sell)
                     for amount, sym in to_sell:
                         broker.sell(sym, amount)
@@ -141,23 +138,23 @@ class AutomatedTrading:
 
         stock_list = [(*TDAmeritrade.get_stock_amount(sym), sym) for sym
                       in sym_list]
-        big_trades = [(100, price, sym) for amount, price, sym in stock_list if price <= 30]
-        fractional_trades = [(fractional, price, sym) for amount, price, sym in stock_list if
-                             price >= 20]
+        # big_trades = [(100, price, sym) for amount, price, sym in stock_list if price <= 30]
+        # fractional_trades = [(fractional, price, sym) for amount, price, sym in stock_list if
+        #                      price >= 20]
 
         self._manager.update_program_data("CURRENTLY_TRADING_STOCKS", stock_list)
-        self._manager.update_program_data("CURRENT_BIG_TRADES", big_trades)
-        self._manager.update_program_data("CURRENT_FRACTIONAL_TRADES", fractional_trades)
+        # self._manager.update_program_data("CURRENT_BIG_TRADES", big_trades)
+        # self._manager.update_program_data("CURRENT_FRACTIONAL_TRADES", fractional_trades)
 
         logger.info(f"Currently Buying: {str(stock_list)}")
         self._perform_action(stock_list, ActionType.BUY, brokers = brokers)
 
-        logger.info(f"Big Trades: {str(big_trades)}")
-        self._perform_action(big_trades, ActionType.BUY, brokers = brokers, enable = ["FD"])
-
-        logger.info(f"Fractional Trades: {str(fractional_trades)}")
-        self._perform_action(fractional_trades, ActionType.BUY, brokers = brokers,
-                             enable = ["FD", "IF", "RH"])
+        # logger.info(f"Big Trades: {str(big_trades)}")
+        # self._perform_action(big_trades, ActionType.BUY, brokers = brokers, enable = ["FD"])
+        #
+        # logger.info(f"Fractional Trades: {str(fractional_trades)}")
+        # self._perform_action(fractional_trades, ActionType.BUY, brokers = brokers,
+        #                      enable = ["FD", "IF", "RH"])
 
         logger.info("Done Buying...\n")
 
@@ -165,18 +162,18 @@ class AutomatedTrading:
         self._manager.update_program_data("STATUS", "Sell")
 
         stock_list = self._manager.get_program_data("CURRENTLY_TRADING_STOCKS")
-        big_trades = self._manager.get_program_data("CURRENT_BIG_TRADES")
-        fractional_trades = self._manager.get_program_data("CURRENT_FRACTIONAL_TRADES")
+        # big_trades = self._manager.get_program_data("CURRENT_BIG_TRADES")
+        # fractional_trades = self._manager.get_program_data("CURRENT_FRACTIONAL_TRADES")
 
         logger.info(f"Currently Selling: {str(stock_list)}")
         self._perform_action(stock_list, ActionType.SELL, brokers = brokers)
 
-        logger.info(f"Big Trades: {str(big_trades)}")
-        self._perform_action(big_trades, ActionType.SELL, brokers = brokers, enable = ["FD"])
-
-        logger.info(f"Fractional Trades: {str(fractional_trades)}")
-        self._perform_action(fractional_trades, ActionType.SELL, brokers = brokers,
-                             enable = ["FD", "IF", "RH"])
+        # logger.info(f"Big Trades: {str(big_trades)}")
+        # self._perform_action(big_trades, ActionType.SELL, brokers = brokers, enable = ["FD"])
+        #
+        # logger.info(f"Fractional Trades: {str(fractional_trades)}")
+        # self._perform_action(fractional_trades, ActionType.SELL, brokers = brokers,
+        #                      enable = ["FD", "IF", "RH"])
 
         logger.info("Done Selling...\n")
 
@@ -184,13 +181,8 @@ class AutomatedTrading:
     def generate_report(*, version = 0):
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
-        date = datetime.now().strftime('%m_%d')
-        # processor.optimized_generate_report(f"reports/original/report_{date}.csv")
-        # processor.optimized_generate_report(f"reports/original/report_09_19.csv")
-        # processor.optimized_generate_report(f"reports/original/report_09_20.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_21.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_25.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_26.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_27.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_28.csv")
-        processor.optimized_generate_report(f"reports/original/report_09_29.csv")
+        processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
+
+
+if __name__ == '__main__':
+    pass

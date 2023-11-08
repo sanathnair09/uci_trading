@@ -132,20 +132,13 @@ def get_ibkr_report(ibkr_file):
 
 def get_schwab_report(schwab_file):
     with open(schwab_file, "r") as file:
-        data = json.load(file)
-        df = pd.DataFrame.from_dict(data["brokerageTransactions"])
-        df_sub = df[["transactionDate", "action", "symbol", "shareQuantity", "executionPrice"]]
+        df = pd.read_csv(file)
+        df_sub = df.drop(columns = ["Description", "Fees & Comm", "Amount"])
+        df_sub["Price"] = pd.to_numeric(df_sub["Price"].str[1:])
+        df_sub["Dollar Amt"] = (df_sub["Quantity"] * df_sub["Price"]).round(4)
         df_sub = df_sub.rename(columns = {
-            "transactionDate": "Broker Executed",
-            "action": "Action",
-            "symbol": "Symbol",
-            "shareQuantity": "Size",
-            "executionPrice": "Price"
+            "Quantity": "Size"
         })
-        df_sub["Size"] = pd.to_numeric(df_sub["Size"])
-        df_sub["Price"] = df_sub["Price"].str[1:]
-        df_sub["Price"] = pd.to_numeric(df_sub["Price"])
-        df_sub["Dollar Amt"] = df_sub["Price"] * df_sub["Size"]
         return df_sub
 
 
