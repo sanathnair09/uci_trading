@@ -9,17 +9,16 @@ from typing import Union
 import pandas as pd
 import pyetrade
 from loguru import logger
-from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from brokers import ETRADE_CONSUMER_KEY, ETRADE_CONSUMER_SECRET, ETRADE_LOGIN, ETRADE_PASSWORD, \
-    ETRADE_ACCOUNT_ID_KEY, BASE_PATH
+    ETRADE_ACCOUNT_ID_KEY
 from brokers import ETRADE2_CONSUMER_KEY, ETRADE2_CONSUMER_SECRET, ETRADE2_LOGIN, ETRADE2_PASSWORD, \
     ETRADE2_ACCOUNT_ID_KEY
 from utils.broker import Broker
-from utils.misc import repeat_on_fail, save_content_to_file
+from utils.misc import repeat_on_fail
 from utils.report.report import StockData, ActionType, OrderType, BrokerNames
 from utils.selenium_helper import CustomChromeInstance
 
@@ -71,18 +70,9 @@ class ETrade(Broker):
             password_element.send_keys(self._password)
             time.sleep(1)
             chrome_inst.find_element(By.XPATH, '//*[@id="mfaLogonButton"]').click()
-            if self._broker_name == BrokerNames.ET:
-                button = WebDriverWait(chrome_inst, 5).until(
-                    EC.presence_of_element_located(
-                        (By.XPATH, "/html/body/div[2]/div/div[3]/form/input[3]"))
-                )
-                button.click()
-            else:
-                button = WebDriverWait(chrome_inst, 5).until(
-                    EC.presence_of_element_located(
-                        (By.XPATH, "/html/body/div[2]/div/div[2]/form/input[3]"))
-                )
-                button.click()
+            time.sleep(2)
+            accept = chrome_inst.find_element(By.XPATH, '//*[@id="acceptSubmit"]')
+            accept.click()
 
             code = WebDriverWait(chrome_inst, 5).until(
                 EC.presence_of_element_located(
@@ -90,7 +80,6 @@ class ETrade(Broker):
             )
             tokens = oauth.get_access_token(code.get_attribute("value"))
         except Exception as e:
-            print("e", e)
             chrome_inst.quit()
             logger.error("Error logging in automatically. Trying Manually...")
             # print("Error logging in automatically. Trying Manually...")
@@ -124,7 +113,6 @@ class ETrade(Broker):
             )
             chrome_inst.quit()
 
-    @repeat_on_fail()
     def _get_stock_data(self, sym: str):
         quote = self._market.get_quote([sym], resp_format = 'json')['QuoteResponse']['QuoteData'][0]
         return StockData(float(quote['All']['ask']), float(quote['All']['bid']),
@@ -157,7 +145,8 @@ class ETrade(Broker):
         ETrade API: https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/OrdersResponse
         """
         order_data = \
-            self._orders.list_orders(account_id_key = self._account_id, resp_format = "json", orderId = orderID)[
+            self._orders.list_orders(account_id_key = self._account_id, resp_format = "json",
+                                     orderId = orderID)[
                 "OrdersResponse"]["Order"][0]
         orderId = order_data["orderId"]
         order_data = order_data["OrderDetail"][0]
@@ -212,20 +201,20 @@ class ETrade(Broker):
 
     def _market_buy(self, sym: str, amount: int):
         res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
-                                        orderAction = "BUY",
-                                        clientOrderId = str(randint(100000, 999999)),
-                                        priceType = "MARKET", quantity = int(amount),
-                                        orderTerm = "GOOD_FOR_DAY", marketSession = "REGULAR")
+                                              orderAction = "BUY",
+                                              clientOrderId = str(randint(100000, 999999)),
+                                              priceType = "MARKET", quantity = int(amount),
+                                              orderTerm = "GOOD_FOR_DAY", marketSession = "REGULAR")
 
         return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
 
     def _market_sell(self, sym: str, amount: int):
         res = self._orders.place_equity_order(accountIdKey = self._account_id, symbol = sym,
-                                        orderAction = "SELL",
-                                        clientOrderId = str(randint(100000, 999999)),
-                                        priceType = "MARKET", quantity = int(amount),
-                                        orderTerm = "GOOD_FOR_DAY",
-                                        marketSession = "REGULAR")
+                                              orderAction = "SELL",
+                                              clientOrderId = str(randint(100000, 999999)),
+                                              priceType = "MARKET", quantity = int(amount),
+                                              orderTerm = "GOOD_FOR_DAY",
+                                              marketSession = "REGULAR")
         return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
 
     def _limit_buy(self, sym: str, amount: int, limit_price: float):
@@ -246,6 +235,9 @@ class ETrade(Broker):
             current_positions.append((positions["symbolDescription"], positions["quantity"]))
 
         return current_positions
+
+    def resolve_errors(self):
+        return NotImplementedError
 
 
 if __name__ == '__main__':

@@ -10,6 +10,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 
+from brokers import BASE_PATH
+
 
 class CustomChromeInstance:
 
@@ -43,7 +45,7 @@ class CustomChromeInstance:
         prefs = {
             "credentials_enable_service": False,
             "profile.password_manager_enabled": False,
-            "download.default_directory": "/Users/sanathnair/Developer/trading/data"
+            "download.default_directory": str(BASE_PATH / "data")
         }
 
         options.add_experimental_option("prefs", prefs)
@@ -86,8 +88,8 @@ class CustomChromeInstance:
         element = wait.until(EC.element_to_be_clickable((By.ID, id)))
         element.click()
 
-    def waitForElementToLoad(self, by, elem: str):
-        res = WebDriverWait(self._driver, 10).until(EC.presence_of_element_located((by, elem)))
+    def waitForElementToLoad(self, by, elem: str, timeout: int = 10):
+        res = WebDriverWait(self._driver, timeout).until(EC.presence_of_element_located((by, elem)))
         return res
 
     def waitForTextInValue(self, by, elem, text: str):
@@ -113,6 +115,9 @@ class CustomChromeInstance:
         return self._driver.current_url
     def get_elem_source(self, element: WebElement):
         return element.get_attribute("outerHTML")
+
+    def refresh(self):
+        self._driver.refresh()
 
 
 if __name__ == '__main__':

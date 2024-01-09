@@ -1,4 +1,5 @@
 from brokers.trading import AutomatedTrading
+from utils.report.report import ActionType
 
 
 if __name__ == "__main__":
@@ -11,5 +12,5 @@ if __name__ == "__main__":
     trader.start()
     # trader.sell_leftover_positions()
     # trader.manual_override([
-    # ])
+    # ], ActionType.SELL)
     # AutomatedTrading.generate_report()

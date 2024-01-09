@@ -1,6 +1,7 @@
 import json
 import sys
 from datetime import datetime
+import random
 from typing import Any
 
 from loguru import logger
@@ -8,37 +9,27 @@ from loguru import logger
 from brokers import BASE_PATH
 
 
-# SYM_LIST = [
-#     'UNF', 'WH', 'ODFL', 'NOTV', 'GRWG', 'RAPT', 'WTFC', 'CAPR', 'XOM', 'OPRT', 'BYN',  # 10
-#     'SHLS', 'AGL', 'BATL', 'HEAR', 'SCHL', 'IFF', 'EDUC', 'AAP', 'PANW',  # 20
-#     'TRV', 'AMTX', 'HONE', 'AMTB', 'CVCO', 'CAL', 'GLT', 'NVDA', 'HEI', 'DUNE',  # 30
-#     'OKE', 'BCC', 'BV', 'PRTH', 'NOV', 'ROOT', 'TSLA', 'MICS', 'PVH', 'CSX',  # 40
-#     'CTMX', 'BYNO', 'NXTC', 'DTOC', 'OLMA', 'POWW', 'INBX', 'W', 'PCYG', 'GO',  # 50 NGC
-#     'ALXO', 'ZUMZ', 'ENER', 'ADRT', 'CRS', 'WRB', 'RAMP', 'CVLY', 'IMNM', 'EWTX',  # 60 CELC
-#     'V', 'EBIX', 'INZY', 'BAC', 'DISH', 'PFMT', 'NNBR', 'MCW', 'RDI', 'DWAC',  # 70
-#     'CVLT', 'RAVE', 'LASE', 'OXM', 'APT', 'ASB', 'MSI', 'SNSE', 'ANIP', 'BBSI',  # 80 TETC
-#     'VNDA', 'TDG', 'ICAD', 'LXRX', 'EW', 'AMP', 'MODN', 'NRG', 'FRBA', 'GIS',  # 90
-#     'SCKT', 'AMC', 'KNDI', 'ATRA', 'KVSA', 'AVO', 'SMAP', 'PACK', 'NTAP', 'PLPC',  # 100 AAWW
-#     'GOOG', 'RM', 'APLS', 'ICCC', 'PROV', 'GEVO', 'RWOD', 'WMPN', 'AWR', 'DCTH',  # 110
-#     'SXI', 'DHIL', 'CDNA', 'MMI', 'YHGJ', 'GBCI', 'AAPL', 'SSNC', 'TCRX', 'OPK',  # 120
-#     'FFIV', 'AGX', 'PTLO', 'LUNG', 'CPK', 'TACT', 'SIX', 'GS', 'PXLW', 'GWRE',  # 130 KNBE
-#     'WBS', 'ALB', 'CCVI'  # 133 'BYN' moved
-# ]
 SYM_LIST = [
-    "AMTB", "AMTX", "BCC", "BV", "CVCO", "DUNE", "GLT", "HEI", "HONE", "NOV", "NVDA",
-    "PRTH", "TRV", "WRB", "DCTH", "KVSA", "PLPC", "PCYG", "ENER", "XOM", "W", "OXM",
-    "SSNC", "NXTC", "BYN", "GBCI", "GS", "AAPL", "TDG", "AVO", "ASB", "DISH", "BBSI",
-    "RAMP", "V", "WMPN", "APT", "CRS", "AMC", "CPK", "DWAC", "KNDI", "IMNM", "ICAD",
-    "SIX", "CVLY", "ANIP", "APLS", "UNF", "CDNA", "HEAR", "ROOT", "MSI", "GRWG", "MICS",
-    "PTLO", "LXRX", "TCRX", "RWOD", "EW", "NTAP", "SMAP", "GO", "PANW", "POWW", "ATRA",
-    "MODN", "PXLW", "AGL", "EDUC", "ZUMZ", "FFIV", "WH", "GOOG", "WTFC", "BYNO", "PVH",
-    "PFMT", "AWR", "FRBA", "GIS", "RAPT", "CSX",  "SXI", "ICCC", "LUNG", "ADRT", # removed DTOC
-    "VNDA", "CAPR", "PACK", "TSLA"
+    "RAPT", "DHIL", "TACT", "RM", "CAPR", "PANW", "HEAR", "IMNM", "DOUG", "IMAQ",
+    "CRS", "CDNA", "CTMX", "SIX", "ICAD", "GEVO", "MODN", "CHCI", "FHN", "RBCAA"
+    "PFMT", "QUAD", "NNBR", "TSLA", "LASE", "APLS", "BYNO", "SCKT", "AVO", "TRIP",
+    "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC", "WH",
+    "NEON", "NTAP", "PXLW", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW",
+    "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "COSM", "MSFT", "VNDA",
+    "NXTC", "EW", "ADRT", "CAL", "GIS", "NVDA", "GLT", "GBCI", "RCKT", "HONE",
+    "OPK", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
+    "BAC", "ROOT", "JNPR", "UNF", "TRV", "AMTB", "TDG", "V", "ASB", "MSI",
+    "PACK", "CPK", "OPRT", "F", "BND", "ALB", "GO", "SHLS", "AMTX", "GRWG",
+    "APT", "RAVE", "WTFC", "CVLY", "WBS", "TCRX", "RWOD", "NEPH", "GWRE", "ARC",
+    "AGX", "ODFL", "QQQ", "INBX", "SCHL", "BATL", "ZUMZ", "AMC", "PRTH", "W",
+    "SSNC", "AAP", "RAMP", "AGL", "FFIV", "CELC", "LUNG", "UBER", "PROV", "RDI",
+    "PVH", "TSVT", "BBSI", "NSTB", "PLPC", "IFF", "INZY", "CSX",  "AMZN", "EWTX",
+    "BV", "POWW", "CATO", "INAQ",
 ]
 
-STOCK_LIST_LEN = len(SYM_LIST)
+SYM_LIST_LEN = len(SYM_LIST)
 
-REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Execuoted', 'Broker Executed', 'Symbol',
+REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
                   'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
                   'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
                   'Order Type', 'Split', 'Order ID', 'Activity ID']
@@ -48,16 +39,18 @@ class ProgramManager:
     def __init__(self, *, enable_stdout = False):
         self._enable_stdout = enable_stdout
 
-        self._program_info_path = BASE_PATH / "previous_program_info.json"
+        self._program_info_path = BASE_PATH / "program_info.json"
         self._log_path = BASE_PATH / f"logs/log_{datetime.now().strftime('%m_%d')}.log"
         self._report_file = BASE_PATH / f"reports/original/report_{datetime.now().strftime('%m_%d')}.csv"
 
         self._default_values = {
-            "PREVIOUS_STOCK_NAME": SYM_LIST[0],
+            "DATE": datetime.now().strftime("%x"),
+            "PREVIOUS_STOCK_NAME": random.choice(SYM_LIST), # if creating a new file choose a random starting point
             "STATUS": "Buy",
             "CURRENTLY_TRADING_STOCKS": [],
             "CURRENT_BIG_TRADES": [],
             "CURRENT_FRACTIONAL_TRADES": [],
+            "COMPLETED": 0
         }
 
         self._initialize_files()

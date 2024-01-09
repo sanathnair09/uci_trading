@@ -11,7 +11,7 @@ from selenium.webdriver.support.select import Select
 
 from utils.broker import Broker
 from brokers import SCHWAB_LOGIN, SCHWAB_PASSWORD
-from utils.misc import save_content_to_file
+from utils.misc import convert_to_float
 from utils.selenium_helper import CustomChromeInstance
 from utils.report.report import OrderType, ActionType, BrokerNames, StockData
 
@@ -39,8 +39,8 @@ class Schwab(Broker):
         except NoSuchElementException as e:
             if "sellAllHandle" in e.msg:
                 logger.error(f"Schwab - Error buying {amount} {sym}")
-            else:
-                raise e
+            self._error_count += 1
+            raise e
 
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._collect_stock_data(sym)
@@ -56,8 +56,8 @@ class Schwab(Broker):
         except NoSuchElementException as e:
             if "sellAllHandle" in e.msg:
                 logger.error(f"Schwab - Error selling {amount} {sym}")
-            else:
-                raise e
+            self._error_count += 1
+            raise e
 
     def _collect_stock_data(self, sym: str):
         symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
@@ -72,10 +72,11 @@ class Schwab(Broker):
         last_price = self._chrome_inst.find(By.XPATH, '//*[@id="ctrl19"]/div[2]/div[1]/span/span')
         last_price = last_price.text[1:]
 
-        volume = self._chrome_inst.find(By.XPATH, '//*[@id="ctrl19"]/div[5]/div[2]/span').text
+        volume = self._chrome_inst.find(By.XPATH, '//*[@id="ctrl19"]/div[4]/div[1]/div/span').text
         volume = volume.replace(',', '')
 
-        return StockData(float(ask_price), float(bid_price), float(last_price), float(volume))
+        return StockData(convert_to_float(ask_price), convert_to_float(bid_price),
+                         convert_to_float(last_price), convert_to_float(volume))
 
     def _market_buy(self, sym: str, amount: int):
         symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
@@ -100,11 +101,12 @@ class Schwab(Broker):
 
         self._chrome_inst.scroll(350)
         time.sleep(1)  # wait for page to load
-        place_order_btn = self._chrome_inst.find(By.XPATH,'//*[@id="mtt-place-button"]')
+        place_order_btn = self._chrome_inst.find(By.XPATH, '//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
         time.sleep(1)
-        new_order_btn = self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-footer"]/div/div/button[3]')
+        new_order_btn = self._chrome_inst.find(By.XPATH,
+                                               '//*[@id="mcaio-footer"]/div/div/button[3]')
         new_order_btn.click()
         # self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(2)  # wait for trade page to load again
@@ -132,11 +134,12 @@ class Schwab(Broker):
         self._chrome_inst.scroll(350)
         time.sleep(1)
         place_order_btn = self._chrome_inst.find(By.XPATH,
-                                                                 '//*[@id="mtt-place-button"]')
+                                                 '//*[@id="mtt-place-button"]')
         place_order_btn.click()
 
         time.sleep(1)
-        new_order_btn = self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-footer"]/div/div/button[3]')
+        new_order_btn = self._chrome_inst.find(By.XPATH,
+                                               '//*[@id="mcaio-footer"]/div/div/button[3]')
         new_order_btn.click()
         # self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(2)  # wait for trade page to load again
@@ -154,7 +157,7 @@ class Schwab(Broker):
         password_input_elem = self._chrome_inst.find(By.ID, "passwordInput")
         self._chrome_inst.sendKeyboardInput(password_input_elem, SCHWAB_PASSWORD)
         temp = self._chrome_inst.find(By.XPATH,
-                                                      '/html/body/div/lms-app-root/section/div/div/section/lms-login-one-step-container/lms-login-one-step/section/div[1]/div[6]/div/select')
+                                      '/html/body/div/lms-app-root/section/div/div/section/lms-login-one-step-container/lms-login-one-step/section/div[1]/div[6]/div/select')
         select_elem = Select(temp)
         select_elem.select_by_visible_text(page)
         self._chrome_inst.waitToClick("btnLogin")
@@ -173,7 +176,7 @@ class Schwab(Broker):
         )
         date_range.select_by_visible_text("Custom")
 
-        from_input = self._chrome_inst.find(By.XPATH,'//*[@id="calendar-FromDate"]')
+        from_input = self._chrome_inst.find(By.XPATH, '//*[@id="calendar-FromDate"]')
         to_input = self._chrome_inst.find(By.XPATH, '//*[@id="calendar-ToDate"]')
 
         self._chrome_inst.sendKeyboardInput(from_input, date)
@@ -190,6 +193,10 @@ class Schwab(Broker):
 
         input("Approved Download?")
 
+    def resolve_errors(self):
+        if self._error_count > 0:
+            self._chrome_inst.refresh()
+            self._error_count = 0
 
     def get_current_positions(self) -> list[tuple[str, float]]:
         """
@@ -203,7 +210,7 @@ class Schwab(Broker):
             page_source = self._chrome_inst.get_page_source()
             df = pd.read_html(StringIO(page_source))
             df = df[0]
-            df = df.drop(df.index[[0,-1, -2, -3, -4, -5]])
+            df = df.drop(df.index[[0, -1, -2, -3, -4, -5]])
             positions = df[["Symbol", "Quantity"]].to_numpy()
             positions = [(x[0], float(x[1])) for x in positions]
         except Exception as e:
@@ -213,8 +220,10 @@ class Schwab(Broker):
         return positions
 
 
-
 if __name__ == '__main__':
     s = Schwab("temp.csv", BrokerNames.SB)
     s.login()
+    s.buy("VRM", 1)
+    time.sleep(1)
+    s.sell("VRM", 1)
     pass

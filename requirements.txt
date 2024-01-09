@@ -11,3 +11,4 @@ python-dotenv==1.0.0
 beautifulsoup4==4.12.2
 robin-stocks==3.0.6
 tda-api==1.6.0
+PyMuPDF==1.23.8

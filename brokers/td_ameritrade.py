@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import tda.auth
+from loguru import logger
 from tda.orders.equities import equity_buy_market, equity_sell_market
 
 from utils.broker import Broker
@@ -18,10 +19,13 @@ class TDAmeritrade(Broker):
         self._client: tda.client.Client = None
 
     @staticmethod
-    @repeat_on_fail()
     def validate_stock(sym: str):
         client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
-        return sym in client.get_quotes(sym).json()
+        res = client.get_quotes(sym).json()
+        valid = sym in res and res[sym]["description"] != "Symbol not found"
+        if not valid:
+            logger.error(f"{sym} not valid")
+        return valid
 
     @staticmethod
     def get_stock_amount(sym: str) -> tuple[int, float]:
@@ -77,7 +81,6 @@ class TDAmeritrade(Broker):
                 TD_ct_hour = "0" + TD_ct_hour
             broker_executed = TD_ct_hour + TD_ct[2:-5]
 
-            # TODO: get report info properly
             self._add_report(program_submitted, program_executed, broker_executed, sym,
                              ActionType.BUY,
                              activity["quantity"], activity["executionLegs"][0]['price'],
@@ -137,16 +140,10 @@ class TDAmeritrade(Broker):
 
         return current_positions
 
+    def resolve_errors(self):
+        return NotImplementedError
+
 
 if __name__ == '__main__':
-    td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD)
-    td.login()
-    print(td.get_stock_amount("CSX"))
-    # td.login()
-    # td._add_report(get_current_date(), datetime.now().strftime("%X:%f"),
-    #                datetime.now().strftime("%X:%f"), datetime.now().strftime("%X:%f"), "AAPL",
-    #                ActionType.SELL,
-    #                1, 178.12, 178.12, StockData(1, 1, 1, 1), StockData(-1, -1, -1, -1),
-    #                OrderType.MARKET, False,
-    #                "sfasf", "asdfasdf", BrokerNames.TD)
-    # td.save_report()
+    # td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD)
+    pass

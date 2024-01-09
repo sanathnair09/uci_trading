@@ -16,6 +16,7 @@ class Broker(ABC):
         if not isinstance(report_file, Path):
             report_file = Path(report_file)
         self._report_file = report_file
+        self._error_count = 0
 
     @abstractmethod
     def login(self):
@@ -51,6 +52,9 @@ class Broker(ABC):
 
     @abstractmethod
     def get_current_positions(self):
+        pass
+    @abstractmethod
+    def resolve_errors(self):
         pass
 
     def _add_report(self, program_submitted: str, program_executed: str,

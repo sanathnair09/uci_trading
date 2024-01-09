@@ -86,7 +86,7 @@ class Robinhood(Broker):
     def login(self):
         """
         if changing the login credentials go to your (HOME_DIR)/.tokens and delete the robinhood.pickle file
-        :return:
+        :return: None
         """
         Robinhood.login_custom(account = "RH2")
 
@@ -111,12 +111,10 @@ class Robinhood(Broker):
             current_positions.append((sym, float(positions[sym]["quantity"])))
         return current_positions
 
+    def resolve_errors(self):
+        return NotImplementedError
+
 
 if __name__ == '__main__':
-    r = Robinhood(Path("temp.csv"), BrokerNames.RH)
-    r.login()
-    r.buy("MODN", 1)
-    time.sleep(2)
-    r.sell("MODN", 1)
-    r.save_report()
-    # print(r._executed_trades)
+    # r = Robinhood(Path("temp.csv"), BrokerNames.RH)
+    pass

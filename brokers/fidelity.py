@@ -10,7 +10,6 @@ from selenium.webdriver import Keys
 
 from brokers import FIDELITY_LOGIN, FIDELITY_PASSWORD, BASE_PATH
 from utils.broker import Broker
-from utils.misc import save_content_to_file
 from utils.report.report import BrokerNames, OrderType, ActionType, StockData
 from utils.selenium_helper import CustomChromeInstance
 from selenium.webdriver.common.by import By
@@ -24,27 +23,16 @@ class Fidelity(Broker):
         self._chrome_inst.open("https://digital.fidelity.com/prgw/digital/login/full-page")
 
     def login(self):
-        try:
-            login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="userId-input"]')
-            self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
-            password_input_elem = self._chrome_inst.find(By.ID, "password")
-            self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
-            self._chrome_inst.waitToClick("fs-login-button")
-            time.sleep(5)  # will have to play with time depending on your internet speeds
-            self._chrome_inst.open(
-                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
-            time.sleep(1)
-        except:
-            login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-username-input"]')
-            self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
-            password_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-pswd-input"]')
-            self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
-            login_button = self._chrome_inst.find(By.XPATH, '//*[@id="dom-login-button"]')
-            login_button.click()
-            time.sleep(5)  # will have to play with time depending on your internet speeds
-            self._chrome_inst.open(
-                "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
-            time.sleep(1)
+        login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-username-input"]')
+        self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
+        password_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-pswd-input"]')
+        self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
+        login_button = self._chrome_inst.find(By.XPATH, '//*[@id="dom-login-button"]')
+        login_button.click()
+        time.sleep(5)  # will have to play with time depending on your internet speeds
+        self._chrome_inst.open(
+            "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+        time.sleep(1)
 
     def _get_stock_data(self, sym: str):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
@@ -76,7 +64,11 @@ class Fidelity(Broker):
     def buy(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
-        self._market_buy(sym, amount)
+        try:
+            self._market_buy(sym, amount)
+        except Exception as e:
+            self._error_count += 1
+            raise e
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = self._get_stock_data(sym)
 
@@ -87,7 +79,11 @@ class Fidelity(Broker):
     def sell(self, sym: str, amount: int):
         pre_stock_data = self._get_stock_data(sym)
         program_submitted = datetime.now().strftime("%X:%f")
-        self._market_sell(sym, amount)
+        try:
+            self._market_sell(sym, amount)
+        except Exception as e:
+            self._error_count += 1
+            raise e
         program_executed = datetime.now().strftime("%X:%f")
         post_stock_data = self._get_stock_data(sym)
 
@@ -95,71 +91,59 @@ class Fidelity(Broker):
                          amount, "", "", pre_stock_data, post_stock_data, OrderType.MARKET,
                          False, None, None)
 
+    def _market_buy(self, sym: str, amount: int):
+        self._perform_order(sym, amount, ActionType.BUY, OrderType.MARKET)
+
+    def _market_sell(self, sym: str, amount: int):
+        self._perform_order(sym, amount, ActionType.SELL, OrderType.MARKET)
+
+    def _perform_order(self, sym: str, amount: int, action: ActionType, order_type: OrderType):
+        self._choose_stock(sym)
+        self._set_action(action)
+        self._set_amount(amount)
+        self._set_order_type(order_type)
+        self._preview_order()
+        time.sleep(2)
+        self._check_error_msg(sym, amount, action)
+        self._place_order()
+        self._place_new_order()
+
+    def _choose_stock(self, sym: str):
+        symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
+        self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
+        symbol_elem.send_keys(Keys.RETURN)
+
+        time.sleep(2)
+
+    def _set_action(self, action: ActionType):
+        if action == ActionType.BUY:
+            buy_elem = self._chrome_inst.find(By.ID, "action-buy")
+            buy_elem.click()
+        else:  # SELL
+            sell_elem = self._chrome_inst.find(By.ID, "action-sell")
+            sell_elem.click()
+
+    def _set_amount(self, amount: int):
+        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="eqt-shared-quantity"]')
+        self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
+
+    def _set_order_type(self, order_type: OrderType):
+        if order_type == OrderType.MARKET:
+            market_elem = self._chrome_inst.find(By.ID, "market-yes")
+            market_elem.click()
+
+    def _preview_order(self):
+        preview_btn = self._chrome_inst.find(By.ID, "previewOrderBtn")
+        preview_btn.click()
+
+    def _place_order(self):
+        place_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "placeOrderBtn")
+        place_order_btn.click()
+
     def _place_new_order(self):
         place_new_order_btn = self._chrome_inst.waitForElementToLoad(By.ID,
                                                                      "eq-ticket__enter-new-order")
         place_new_order_btn.click()
-
-    def _market_buy(self, sym: str, amount: int):
-        symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
-        self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
-        symbol_elem.send_keys(Keys.RETURN)
-
-        time.sleep(2)
-
-        buy_elem = self._chrome_inst.find(By.ID, "action-buy")
-        buy_elem.click()
-
-        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="eqt-shared-quantity"]')
-        self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
-        # amount_elem.send_keys(Keys.RETURN)
-
-        market_elem = self._chrome_inst.find(By.ID, "market-yes")
-        market_elem.click()
-
-        preview_btn = self._chrome_inst.find(By.ID, "previewOrderBtn")
-        preview_btn.click()
-
-        time.sleep(2)
-
-        self._check_error_msg(sym, amount, ActionType.BUY)
-
-        place_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "placeOrderBtn")
-        place_order_btn.click()
-
-        self._place_new_order()
-        # return order_num
-
-    def _market_sell(self, sym: str, amount: int):
-        symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
-        self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
-        symbol_elem.send_keys(Keys.RETURN)
-
-        time.sleep(2)
-
-        sell_elem = self._chrome_inst.find(By.ID, "action-sell")
-        sell_elem.click()
-
-        amount_elem = self._chrome_inst.find(By.XPATH, '//*[@id="eqt-shared-quantity"]')
-        self._chrome_inst.sendKeyboardInput(amount_elem, str(amount))
-
-        market_elem = self._chrome_inst.find(By.ID, "market-yes")
-        market_elem.click()
-
-        preview_btn = self._chrome_inst.find(By.ID, "previewOrderBtn")
-        preview_btn.click()
-
-        time.sleep(2)
-
-        self._check_error_msg(sym, amount, ActionType.SELL)
-
-        place_order_btn = self._chrome_inst.waitForElementToLoad(By.ID, "placeOrderBtn")
-        place_order_btn.click()
-
-        # order_num = self._get_order_num()
-
-        self._place_new_order()
-        # return order_num
 
     def _check_error_msg(self, sym, amount, action: ActionType):
         try:
@@ -189,24 +173,27 @@ class Fidelity(Broker):
         download_csv_positions = self._chrome_inst.waitForElementToLoad(By.XPATH,
                                                                         '//*[@id="posweb-grid_top-presetviews_refresh_settings_share"]/div[2]/div[4]/button')
         download_csv_positions.click()
-        time.sleep(5) # wait for file to download
-        import glob
-        # this code assumes that there are no csv files in the main trading directory which there shouldn't be
-        file = glob.glob("/Users/sanathnair/Developer/trading/data/*.csv")[0]
-        df = pd.read_csv(file)
-        df = df.drop(df.index[[0, -1, -2, -3, -4]]) # only keep rows with stock info
-        positions = [(sym, quantity) for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()]
-        self._chrome_inst.open("https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
-        time.sleep(3)
-        return positions
+        time.sleep(5)  # wait for file to download
 
+        file = BASE_PATH / f'data/Portfolio_Positions_{datetime.now().strftime("%b-%d-%Y")}.csv'
+        df = pd.read_csv(file)
+        df = df.drop(df.index[[0, -1, -2, -3, -4]])  # only keep rows with stock info
+        positions = [(sym, quantity) for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()]
+        self._chrome_inst.open(
+            "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
+        time.sleep(3)
+
+        import os
+        os.remove(file)
+
+        return positions
 
     def get_trade_data(self):
         """
-                gets the information from the https://digital.fidelity.com/ftgw/digital/portfolio/activity
-                and stores it into a csv file to be used in the report generation
-                :return:
-                """
+        gets the information from the https://digital.fidelity.com/ftgw/digital/portfolio/activity
+        and stores it into a csv file to be used in the report generation
+        :return:
+        """
         self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
         data_exists = input(
             "Fidelity (load more results and close assitant bubble in bottom right corner) (Enter/n) ")
@@ -304,6 +291,11 @@ class Fidelity(Broker):
             df.to_csv(
                 BASE_PATH / f'data/fidelity/fd_splits_{datetime.now().strftime("%m_%d")}.csv',
                 index = False)
+
+    def resolve_errors(self):
+        if self._error_count > 0:
+            self._chrome_inst.refresh()
+            self._error_count = 0
 
 
 if __name__ == '__main__':

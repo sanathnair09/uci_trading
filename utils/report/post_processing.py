@@ -34,12 +34,12 @@ class PostProcessing:
         self._login()
 
     def _login(self):
-        rh_acc = input("Which RH account do you want to login to? (RH/RH2): ")
-        Robinhood.login_custom(account = rh_acc)
+        # rh_acc = input("Which RH account do you want to login to? (RH/RH2): ")
+        Robinhood.login_custom(account = 'RH2')
         self._brokers = {
             'ET': ETrade('', BrokerNames.ET),
             # 'E2': ETrade('', BrokerNames.E2),
-            'FD': Fidelity('', BrokerNames.FD)
+            # 'FD': Fidelity('', BrokerNames.FD)
         }
         for broker in self._brokers.values():
             broker.login()
@@ -72,14 +72,15 @@ class PostProcessing:
 
     def _get_broker_data(self, date):
 
-        ibkr_file = BASE_PATH / f"data/ibkr/DailyTradeReport.{date.strftime('%Y%m%d')}.html"
+        # ibkr_file = BASE_PATH / f"data/ibkr/DailyTradeReport.{date.strftime('%Y%m%d')}.html"
+        ibkr_file = BASE_PATH / f"data/ibkr/ibkr_{date.strftime('%m_%d')}.csv"
         fidelity_file = BASE_PATH / f"data/fidelity/fd_splits_{date.strftime('%m_%d')}.csv"
 
         # schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.json"
         schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.csv"
 
         ibkr_df = get_ibkr_report(ibkr_file) if check_file_existence(ibkr_file) else None
-        fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else self._brokers["FD"].get_trade_data()
+        fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else None
         schwab_df = get_schwab_report(schwab_file) if check_file_existence(schwab_file) else None
 
         return ibkr_df, fidelity_df, schwab_df

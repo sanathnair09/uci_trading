@@ -10,10 +10,13 @@ from pytz import utc, timezone
 
 from utils.report.report import ActionType
 
+
 COLUMN_ORDER = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
-                    'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
-                    'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
-                    'Order Type', 'Split', 'Order ID', 'Activity ID']
+                'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
+                'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
+                'Order Type', 'Split', 'Order ID', 'Activity ID']
+
+
 def convert_int64_utc_to_pst(int64):
     try:
         utc_datetime = datetime.utcfromtimestamp(float(int64) / 1000)
@@ -106,27 +109,20 @@ def optimized_calculate_bjzz(rounded_price):
 
 
 def get_ibkr_report(ibkr_file):
-    dfs = pd.read_html(ibkr_file)
-    df = dfs[1]
-    df = df.drop(df.index[[0, 1, -1, -2]])
-    df = df[df["Code"].notna()]
-    df = df[["Symbol", "Trade Date/Time", "Type", "Quantity", "Price"]].copy()
-
-    df["Trade Date/Time"] = pd.to_datetime(df["Trade Date/Time"], format = "%Y-%m-%d, %H:%M:%S")
-    df["Trade Date/Time"] = df["Trade Date/Time"] - pd.Timedelta(hours = 3)
-    df["Broker Executed"] = df["Trade Date/Time"].dt.strftime('%I:%M:%S')
-
+    df = pd.read_csv(ibkr_file)
+    df = df.drop(
+        ['Acct ID', 'Trade Date/Time', 'Settle Date', "Exchange", 'Proceeds', 'Comm', 'Fee',
+         'Code'], axis = 1)
+    df["Unnamed: 3"] = pd.to_datetime(df["Unnamed: 3"], format = "%I:%M:%S %p") - pd.Timedelta(
+        hours = 3)
+    df["Broker Executed"] = df["Unnamed: 3"].dt.strftime('%I:%M:%S')
     df["Quantity"] = pd.to_numeric(df["Quantity"])
     df["Quantity"] = df["Quantity"].abs()
-    df["Price"] = pd.to_numeric(df["Price"])
     df["Dollar Amt"] = df["Quantity"] * df["Price"]
-
     df = df.rename(columns = {
         "Type": "Action",
         "Quantity": "Size"
     })
-
-    df["Action"] = df["Action"].str.capitalize()
     return df
 
 
@@ -154,8 +150,9 @@ def create_datetime_from_string(date_string):
     datetime_obj = datetime(datetime.now().year, month, day)
     return datetime_obj
 
+
 def parse_etrade_report(df):
-    df["Date & Time"] = pd.to_datetime(df["Date & Time"], format="%m/%d/%y %I:%M:%S %p EDT")
+    df["Date & Time"] = pd.to_datetime(df["Date & Time"], format = "%m/%d/%y %I:%M:%S %p EDT")
     df["Date & Time"] = df["Date & Time"] - pd.Timedelta(hours = 3)
 
     df[["Action", "Symbol"]] = df["Order Description"].str.split(expand = True)[[0, 2]]
@@ -174,8 +171,10 @@ def parse_etrade_report(df):
     })
     return df
 
+
 def merge_etrade_report(report_df, etrade_df, et_acc):
-    merged = pd.merge(left = report_df, right = etrade_df, on = ["Date", "Symbol", "Action", "Broker"])
+    merged = pd.merge(left = report_df, right = etrade_df,
+                      on = ["Date", "Symbol", "Action", "Broker"])
     merged["Split"] = True
     merged = merged.drop(columns = ["Size_x", "Price_x", "Dollar Amt_x", "Broker Executed_x"])
     merged = merged.rename(columns = {
@@ -191,5 +190,3 @@ def merge_etrade_report(report_df, etrade_df, et_acc):
     report_df = pd.concat([report_df, merged], ignore_index = True)
 
     return report_df
-
-

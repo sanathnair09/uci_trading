@@ -11,3 +11,4 @@ token
 brokers/temp.csv
 *.pyc
 previous_program_info.json
+program_info.json
