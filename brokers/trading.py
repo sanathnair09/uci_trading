@@ -59,10 +59,12 @@ class AutomatedTrading:
 
         count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
 
+        sell_time_limit = datetime.now().replace(hour=12, minute=35, second=0, microsecond=0)
+
         buy_time = datetime.now() + timedelta(minutes = 1)
         sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
 
-        while count > 0:
+        while count > 0 and sell_time < sell_time_limit:
             sym_list = SYM_LIST[current_idx:current_idx + 4]  # chooses next 4 stocks to trade
             # sym_list = [sym for sym in sym_list if TDAmeritrade.validate_stock(sym)]
             logger.info(sym_list)

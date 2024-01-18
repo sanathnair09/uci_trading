@@ -25,14 +25,16 @@ class Fidelity(Broker):
     def login(self):
         login_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-username-input"]')
         self._chrome_inst.sendKeyboardInput(login_input_elem, FIDELITY_LOGIN)
+        time.sleep(1)
         password_input_elem = self._chrome_inst.find(By.XPATH, '//*[@id="dom-pswd-input"]')
         self._chrome_inst.sendKeyboardInput(password_input_elem, FIDELITY_PASSWORD)
+        time.sleep(1)
         login_button = self._chrome_inst.find(By.XPATH, '//*[@id="dom-login-button"]')
         login_button.click()
         time.sleep(5)  # will have to play with time depending on your internet speeds
         self._chrome_inst.open(
             "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry")
-        time.sleep(1)
+        input("Finished logging in? (Enter/n) ")
 
     def _get_stock_data(self, sym: str):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
@@ -169,7 +171,8 @@ class Fidelity(Broker):
         :return: list of (symbol, amount)
         """
         self._chrome_inst.open("https://digital.fidelity.com/ftgw/digital/portfolio/positions")
-        time.sleep(4)  # depends on internet speed but min 2 seconds for animation
+        # time.sleep(4)  # depends on internet speed but min 2 seconds for animation
+        input("Finished loading positions? (Enter/n) ")
         download_csv_positions = self._chrome_inst.waitForElementToLoad(By.XPATH,
                                                                         '//*[@id="posweb-grid_top-presetviews_refresh_settings_share"]/div[2]/div[4]/button')
         download_csv_positions.click()

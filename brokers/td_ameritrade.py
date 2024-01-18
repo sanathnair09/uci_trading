@@ -15,7 +15,6 @@ from utils.report.report import StockData, ActionType, OrderType, BrokerNames
 class TDAmeritrade(Broker):
     def __init__(self, report_file: Path, broker_name: BrokerNames):
         super().__init__(report_file, broker_name)
-        self._driver = CustomChromeInstance.createInstance()
         self._client: tda.client.Client = None
 
     @staticmethod
@@ -45,7 +44,8 @@ class TDAmeritrade(Broker):
             self._client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
         except:  # if the token is expired or some other issue try logging in using a browser
             print("Issue logging in with token trying manual...")
-            self._client = tda.auth.client_from_login_flow(self._driver, TD_KEY, TD_URI,
+            driver = CustomChromeInstance.createInstance()
+            self._client = tda.auth.client_from_login_flow(driver, TD_KEY, TD_URI,
                                                            TD_TOKEN_PATH)
 
     @repeat_on_fail()
@@ -145,5 +145,8 @@ class TDAmeritrade(Broker):
 
 
 if __name__ == '__main__':
-    # td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD)
+    td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD)
+    td.login()
+    res = td.get_current_positions()
+    print(res)
     pass

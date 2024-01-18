@@ -116,5 +116,7 @@ class Robinhood(Broker):
 
 
 if __name__ == '__main__':
-    # r = Robinhood(Path("temp.csv"), BrokerNames.RH)
+    r = Robinhood(Path("temp.csv"), BrokerNames.RH)
+    r.login()
+    print(r.get_current_positions())
     pass

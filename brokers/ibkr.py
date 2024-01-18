@@ -131,6 +131,8 @@ class IBKR(Broker):
         sym_input = self._test_variation(
             '/html/body/div[{f}]/div/div[2]/div[1]/div[1]/div/div/form/div/span/span/input', 5, 6,
             7, 4)
+        for _ in range(6): # largest stock name
+            sym_input.send_keys(Keys.BACKSPACE)
         self._chrome_inst.sendKeyboardInput(sym_input, sym)
         sym_input.send_keys(Keys.RETURN)
         time.sleep(1)
@@ -153,7 +155,7 @@ class IBKR(Broker):
 
     def _set_amount(self, amount):
         quantity_elem = self._test_variation(
-            '/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[3]/div/div[1]/div/div[1]/span/span/input',
+            '/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[2]/div/div[1]/div/div[1]/span/span/input',
             5, 6, 7, 4)
         if quantity_elem:
             # to remove the default 100 that is in the shares field
@@ -168,11 +170,11 @@ class IBKR(Broker):
     def _choose_order_type(self, order_type: OrderType, action_type: ActionType):
         if action_type == ActionType.BUY:
             dropdown = self._test_variation(
-                '/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[3]/div/div[3]/div[1]/span/span',
+                '/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[2]/div/div[3]/div[1]/span/span',
                 5, 6, 7, 4)
         else:
             dropdown = self._chrome_inst.find(By.XPATH,
-                                              '//*[@id="orderTicketSellTabPanel"]/div/div[2]/div[1]/form/div[3]/div/div[2]/div[1]/span')
+                                              '//*[@id="orderTicketSellTabPanel"]/div/div[2]/div[1]/form/div[2]/div/div[2]/div[1]/span')
         dropdown.click()
         if order_type == OrderType.MARKET:
             self._chrome_inst.sendKeys(Keys.DOWN)
@@ -184,10 +186,11 @@ class IBKR(Broker):
         if action_type == ActionType.BUY:
             back_btn = self._chrome_inst.find(By.XPATH,
                                               '//*[@id="orderTicketBuyTabPanel"]/div/div[2]/div[2]/div[2]/div/button[1]')
-            back_btn.click()
         else:
             back_btn = self._chrome_inst.find(By.XPATH,
                                               '//*[@id="orderTicketSellTabPanel"]/div/div[2]/div[2]/div[2]/div/button[1]')
+        text = back_btn.text
+        if text == "Back":
             back_btn.click()
 
     def _validate_order(self, sym: str, action_type: ActionType):
@@ -233,6 +236,7 @@ class IBKR(Broker):
                     new_order.click()
         except Exception as e:
             logger.error(f"Error completing IF action for {sym}")
+            self._go_back(action_type)
 
     def resolve_errors(self):
         if self._error_count > 0:
@@ -259,5 +263,9 @@ class IBKR(Broker):
 if __name__ == '__main__':
     a = IBKR("temp.csv", BrokerNames.IF)
     a.login()
-    a.get_current_positions()
+    a.buy("OPK", 1)
+    time.sleep(1)
+    a.sell("OPK", 1)
+    # res = a.get_current_positions()
+    # print(res)
     pass

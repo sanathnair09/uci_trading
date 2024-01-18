@@ -1,3 +1,4 @@
+from pyexpat import ExpatError
 import time
 import warnings
 from collections import namedtuple
@@ -39,12 +40,6 @@ class ETrade(Broker):
             self._login = ETRADE_LOGIN
             self._password = ETRADE_PASSWORD
             self._account_id = ETRADE_ACCOUNT_ID_KEY
-        else:
-            self._consumer_key = ETRADE2_CONSUMER_KEY
-            self._consumer_secret = ETRADE2_CONSUMER_SECRET
-            self._login = ETRADE2_LOGIN
-            self._password = ETRADE2_PASSWORD
-            self._account_id = ETRADE2_ACCOUNT_ID_KEY
 
     def login(self):
         """
@@ -226,13 +221,16 @@ class ETrade(Broker):
     def get_current_positions(self):
         current_positions = []
         # try catch for when nothing left
-        positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"][
-            "AccountPortfolio"]["Position"]
-        if type(positions) is list:  # multiple stocks are left over
-            for position in positions:
-                current_positions.append((position["symbolDescription"], position["quantity"]))
-        else:
-            current_positions.append((positions["symbolDescription"], positions["quantity"]))
+        try:
+            positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"][
+                "AccountPortfolio"]["Position"]
+            if type(positions) is list:  # multiple stocks are left over
+                for position in positions:
+                    current_positions.append((position["symbolDescription"], position["quantity"]))
+            else:
+                current_positions.append((positions["symbolDescription"], positions["quantity"]))
+        except ExpatError as e:
+            pass
 
         return current_positions
 
@@ -241,7 +239,7 @@ class ETrade(Broker):
 
 
 if __name__ == '__main__':
-    et = ETrade(Path("temp.csv"), BrokerNames.E2)
+    et = ETrade(Path("temp.csv"), BrokerNames.ET)
     et.login()
     pos = et.get_current_positions()
     print(pos)

@@ -11,17 +11,17 @@ from brokers import BASE_PATH
 
 SYM_LIST = [
     "RAPT", "DHIL", "TACT", "RM", "CAPR", "PANW", "HEAR", "IMNM", "DOUG", "IMAQ",
-    "CRS", "CDNA", "CTMX", "SIX", "ICAD", "GEVO", "MODN", "CHCI", "FHN", "RBCAA"
+    "CRS", "CDNA", "CTMX", "SIX", "ICAD", "VKTX", "MODN", "CHCI", "FHN", "RBCAA",
     "PFMT", "QUAD", "NNBR", "TSLA", "LASE", "APLS", "BYNO", "SCKT", "AVO", "TRIP",
     "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC", "WH",
     "NEON", "NTAP", "PXLW", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW",
     "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "COSM", "MSFT", "VNDA",
     "NXTC", "EW", "ADRT", "CAL", "GIS", "NVDA", "GLT", "GBCI", "RCKT", "HONE",
-    "OPK", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
+    "AMPS", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
     "BAC", "ROOT", "JNPR", "UNF", "TRV", "AMTB", "TDG", "V", "ASB", "MSI",
     "PACK", "CPK", "OPRT", "F", "BND", "ALB", "GO", "SHLS", "AMTX", "GRWG",
     "APT", "RAVE", "WTFC", "CVLY", "WBS", "TCRX", "RWOD", "NEPH", "GWRE", "ARC",
-    "AGX", "ODFL", "QQQ", "INBX", "SCHL", "BATL", "ZUMZ", "AMC", "PRTH", "W",
+    "AGX", "ODFL", "QQQ", "INBX", "SCHL", "BATL", "ZUMZ", "AMC", "PRTH", "MKTX",
     "SSNC", "AAP", "RAMP", "AGL", "FFIV", "CELC", "LUNG", "UBER", "PROV", "RDI",
     "PVH", "TSVT", "BBSI", "NSTB", "PLPC", "IFF", "INZY", "CSX",  "AMZN", "EWTX",
     "BV", "POWW", "CATO", "INAQ",
@@ -59,7 +59,7 @@ class ProgramManager:
     def _initialize_files(self):
         if not self._program_info_path.exists():
             print("Creating program file...")
-            with open(self._program_info_path, "w") as file:
+            with open(self._program_info_path, "w+") as file:
                 json.dump(self._default_values, file, indent = 4)
             print("Finished creating program file...")
         else:

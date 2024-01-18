@@ -18,6 +18,7 @@ class CustomChromeInstance:
     @staticmethod
     def createInstance():
         options = webdriver.ChromeOptions()
+        
         options.add_argument("--start-maximized")
         # Adding argument to disable the AutomationControlled flag
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -27,6 +28,7 @@ class CustomChromeInstance:
 
         prefs = {"credentials_enable_service": False,
                  "profile.password_manager_enabled": False}
+        
         options.add_experimental_option("prefs", prefs)
         # Turn-off userAutomationExtension
         # options.add_experimental_option("useAutomationExtension", False)
@@ -35,6 +37,7 @@ class CustomChromeInstance:
     def __init__(self) -> None:
         # Create Chromeoptions instance 
         options = webdriver.ChromeOptions()
+        options.add_argument('--log-level=3')
         options.add_argument("--start-maximized")
         # Adding argument to disable the AutomationControlled flag 
         options.add_argument("--disable-blink-features=AutomationControlled")
