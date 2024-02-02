@@ -38,8 +38,6 @@ class PostProcessing:
         Robinhood.login_custom(account = 'RH2')
         self._brokers = {
             'ET': ETrade('', BrokerNames.ET),
-            # 'E2': ETrade('', BrokerNames.E2),
-            # 'FD': Fidelity('', BrokerNames.FD)
         }
         for broker in self._brokers.values():
             broker.login()
@@ -59,7 +57,7 @@ class PostProcessing:
         for _, row in ets.iterrows():
             orderId = row["Order ID"]
             broker = row["Broker"]
-            trade_df = self._brokers[broker].get_order_data(orderId = orderId)
+            trade_df = self._brokers[broker].get_order_data(orderId=orderId, sym=row["Symbol"], date=row["Date"])
             for idx, split in trade_df.iterrows():
                 row["Broker Executed"] = convert_int64_utc_to_pst(split["Broker Executed"])
                 row["Size"] = split["Size"]

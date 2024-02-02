@@ -59,7 +59,7 @@ class AutomatedTrading:
 
         count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
 
-        sell_time_limit = datetime.now().replace(hour=12, minute=35, second=0, microsecond=0)
+        sell_time_limit = datetime.now().replace(hour=12, minute=30, second=0, microsecond=0)
 
         buy_time = datetime.now() + timedelta(minutes = 1)
         sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
@@ -182,6 +182,7 @@ class AutomatedTrading:
         #                      enable = ["FD", "IF", "RH"])
 
         logger.info("Done Buying...\n")
+        return schedule.CancelJob
 
     def _sell_across_brokers(self, brokers: list):
         self._manager.update_program_data("STATUS", "Sell")
@@ -201,14 +202,13 @@ class AutomatedTrading:
         #                      enable = ["FD", "IF", "RH"])
 
         logger.info("Done Selling...\n")
+        return schedule.CancelJob
 
     @staticmethod
     def generate_report(*, version = 0):
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
-        processor.optimized_generate_report(f"reports/original/report_12_18.csv")
-        processor.optimized_generate_report(f"reports/original/report_12_19.csv")
 
 
 if __name__ == '__main__':

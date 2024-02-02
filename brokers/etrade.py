@@ -113,9 +113,12 @@ class ETrade(Broker):
         return StockData(float(quote['All']['ask']), float(quote['All']['bid']),
                          float(quote['All']['lastTrade']), float(quote['All']['totalVolume']))
 
-    def get_order_data(self, orderId):
-        data = self._orders.list_orders(account_id_key = self._account_id, resp_format = "json",
-                                        orderId = str(orderId))
+
+    def get_order_data(self, orderId, sym: str, date: str):
+        date_object = datetime.strptime(date, "%m/%d/%y")
+        fromDate = date_object.strftime("%m%d%Y")
+        data = self._orders.list_orders(account_id_key = self._account_id, resp_format = "json", orderId=orderId,
+                                        symbol = sym, fromDate = fromDate, toDate = fromDate)
         events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
         splits_df = pd.DataFrame()
@@ -241,5 +244,4 @@ class ETrade(Broker):
 if __name__ == '__main__':
     et = ETrade(Path("temp.csv"), BrokerNames.ET)
     et.login()
-    pos = et.get_current_positions()
-    print(pos)
+    pass

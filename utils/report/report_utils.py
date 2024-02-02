@@ -111,10 +111,9 @@ def optimized_calculate_bjzz(rounded_price):
 def get_ibkr_report(ibkr_file):
     df = pd.read_csv(ibkr_file)
     df = df.drop(
-        ['Acct ID', 'Trade Date/Time', 'Settle Date', "Exchange", 'Proceeds', 'Comm', 'Fee',
-         'Code'], axis = 1)
+        ['Acct ID', 'Trade Date/Time', 'Proceeds'], axis = 1)
     df["Unnamed: 3"] = pd.to_datetime(df["Unnamed: 3"], format = "%I:%M:%S %p") - pd.Timedelta(
-        hours = 3)
+    hours = 3)
     df["Broker Executed"] = df["Unnamed: 3"].dt.strftime('%I:%M:%S')
     df["Quantity"] = pd.to_numeric(df["Quantity"])
     df["Quantity"] = df["Quantity"].abs()
