@@ -207,8 +207,7 @@ class AutomatedTrading:
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
-        processor.optimized_generate_report(f"reports/original/report_12_18.csv")
-        processor.optimized_generate_report(f"reports/original/report_12_19.csv")
+        processor.optimized_generate_report(f"reports/original/report_02_02.csv")
 
 
 if __name__ == '__main__':

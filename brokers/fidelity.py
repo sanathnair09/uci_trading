@@ -197,19 +197,19 @@ class Fidelity(Broker):
         and stores it into a csv file to be used in the report generation
         :return:
         """
-        self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
-        data_exists = input(
-            "Fidelity (load more results and close assitant bubble in bottom right corner) (Enter/n) ")
+        # def save_string_to_file(content: str, filename: str):
+        #     with open(filename, 'w') as file:
+        #         file.write(content)
+        # self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
+        data_exists = input("Fidelity (load more results)?")
 
-        if data_exists.upper() == "N":  # if you forgot to download data or run report early enough u can skip fidelity
-            return None
 
         unopened = self._chrome_inst.get_page_source()
         try:  # super sus
             def get_xpath(row):
-                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/div/account-activity-container/div/div[3]/activity-list[1]/div/div[{row}]'
-
-            x = 3
+                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/div/account-activity-container/div/div[2]/activity-list[1]/div/div[3]/div[{row}]/div/div[1]'
+            
+            x = 1
             while True:
                 more_info = self._chrome_inst.find(By.XPATH, get_xpath(x))
                 more_info.click()
@@ -217,9 +217,9 @@ class Fidelity(Broker):
         except Exception as e:
             # done opening all the tabs
             pass
-
+        
         opened = self._chrome_inst.get_page_source()
-
+        
         return self.parse_trade_data(unopened, opened)
 
     @staticmethod
@@ -263,7 +263,7 @@ class Fidelity(Broker):
     @staticmethod
     def _handle_opened_data(opened):
         df = pd.read_html(StringIO(opened))
-
+        
         # get the data from the individual split dfs and put them into a list
         prices = []
         for idx, temp in enumerate(df):

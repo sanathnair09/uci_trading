@@ -196,7 +196,7 @@ class IBKR(Broker):
     def _validate_order(self, sym: str, action_type: ActionType):
         preview_btn = self._chrome_inst.find(By.XPATH, '//*[@id="cp-btn-preview"]')
         preview_btn.click()
-        time.sleep(1)
+        time.sleep(2)
 
         try:
             if action_type == ActionType.BUY:

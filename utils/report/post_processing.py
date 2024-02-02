@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Union
 
 import numpy as np
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import robin_stocks.robinhood as rh
 from loguru import logger
@@ -59,13 +61,13 @@ class PostProcessing:
         for _, row in ets.iterrows():
             orderId = row["Order ID"]
             broker = row["Broker"]
-            trade_df = self._brokers[broker].get_order_data(orderId = orderId)
+            trade_df, is_split = self._brokers[broker].get_order_data(orderId=orderId, sym=row["Symbol"], date=row["Date"])
             for idx, split in trade_df.iterrows():
                 row["Broker Executed"] = convert_int64_utc_to_pst(split["Broker Executed"])
                 row["Size"] = split["Size"]
                 row["Price"] = split["Price"]
                 row["Dollar Amt"] = split["Dollar Amt"]
-                row["Split"] = True
+                row["Split"] = is_split
                 new_ets = pd.concat([new_ets, row.to_frame().T], ignore_index = False)
         df = pd.concat([df, new_ets], ignore_index = False)
         return df
@@ -80,7 +82,7 @@ class PostProcessing:
         schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.csv"
 
         ibkr_df = get_ibkr_report(ibkr_file) if check_file_existence(ibkr_file) else None
-        fidelity_df = pd.read_csv(fidelity_file) if check_file_existence(fidelity_file) else None
+        fidelity_df = pd.read_csv(fidelity_file, thousands = ',') if check_file_existence(fidelity_file) else None
         schwab_df = get_schwab_report(schwab_file) if check_file_existence(schwab_file) else None
 
         return ibkr_df, fidelity_df, schwab_df
@@ -266,7 +268,7 @@ class PostProcessing:
         logger.info(f"{end - start} seconds")
         logger.info(f"Output file: {filtered_filename}")
 
-        logger.info(f"Number of Trades: {len(df['Symbol'].unique())}")
+        logger.info(f"Number of Trades: {len(df['Symbol'].unique())}\n")
 
 
 if __name__ == '__main__':
