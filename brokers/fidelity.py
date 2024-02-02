@@ -44,10 +44,10 @@ class Fidelity(Broker):
         time.sleep(1)
 
         bid_price = self._chrome_inst.find(By.XPATH,
-                                           '//*[@id="quote-panel"]/div/div[2]/div[1]/div/span/span').text
+                                           '//*[@id="quote-panel"]/div/div[2]/div[1]/div/span/span').text.replace(',', '')
 
         ask_price = self._chrome_inst.find(By.XPATH,
-                                           '//*[@id="quote-panel"]/div/div[2]/div[2]/div/span/span').text
+                                           '//*[@id="quote-panel"]/div/div[2]/div[2]/div/span/span').text.replace(',', '')
 
         volume = self._chrome_inst.find(By.XPATH,
                                         '//*[@id="quote-panel"]/div/div[2]/div[3]/div/span').text.replace(
@@ -60,7 +60,8 @@ class Fidelity(Broker):
             time.sleep(0.5)
             quote = self._chrome_inst.find(By.XPATH,
                                            '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
-
+        quote = quote.replace(",", "")
+        symbol_elem.clear()
         return StockData(float(ask_price), float(bid_price), float(quote[1:]), float(volume))
 
     def buy(self, sym: str, amount: int):
@@ -112,6 +113,7 @@ class Fidelity(Broker):
 
     def _choose_stock(self, sym: str):
         symbol_elem = self._chrome_inst.waitForElementToLoad(By.ID, "eq-ticket-dest-symbol")
+        symbol_elem.send_keys(Keys.BACKSPACE * 5)
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
         symbol_elem.send_keys(Keys.RETURN)
 
