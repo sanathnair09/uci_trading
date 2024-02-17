@@ -13,7 +13,7 @@ SYM_LIST = [
     "RAPT", "DHIL", "TACT", "RM", "CAPR", "PANW", "HEAR", "IMNM", "DOUG", "IMAQ",
     "CRS", "CDNA", "CTMX", "SIX", "ICAD", "VKTX", "MODN", "CHCI", "FHN", "RBCAA",
     "PFMT", "QUAD", "NNBR", "TSLA", "LASE", "APLS", "BYNO", "SCKT", "AVO", "TRIP",
-    "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC", "WH",
+    "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC", #removed "WH" 2/15/24
     "NEON", "NTAP", "PXLW", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW",
     "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "COSM", "MSFT", "VNDA",
     "NXTC", "EW", "ADRT", "CAL", "GIS", "NVDA", "GLT", "GBCI", "RCKT", "HONE",
@@ -23,7 +23,7 @@ SYM_LIST = [
     "APT", "RAVE", "WTFC", "CVLY", "WBS", "TCRX", "RWOD", "NEPH", "GWRE", "ARC",
     "AGX", "ODFL", "QQQ", "INBX", "SCHL", "BATL", "ZUMZ", "AMC", "PRTH", "MKTX",
     "SSNC", "AAP", "RAMP", "AGL", "FFIV", "CELC", "LUNG", "UBER", "PROV", "RDI",
-    "PVH", "TSVT", "BBSI", "NSTB", "PLPC", "IFF", "INZY", "CSX",  "AMZN", "EWTX",
+    "PVH", "TSVT", "BBSI",  "PLPC", "IFF", "INZY", "CSX",  "AMZN", "EWTX", # removed NSTB 2/8/24
     "BV", "POWW", "CATO", "INAQ",
 ]
 

@@ -114,7 +114,7 @@ class Schwab(Broker):
     def _market_sell(self, sym: str, amount: int):
         symbol_elem = self._chrome_inst.find(By.XPATH, '//*[@id="_txtSymbol"]')
         self._chrome_inst.sendKeyboardInput(symbol_elem, sym)
-        symbol_elem.send_keys(Keys.RETURN)
+        symbol_elem.send_keys(Keys.RETURN * 2)
         time.sleep(2)
         # inherently sets the action type because it is selling all stocks for that symbol
         self._chrome_inst.find(By.XPATH, '//*[@id="mcaio-sellAllHandle"]').click()
@@ -200,7 +200,7 @@ class Schwab(Broker):
 
     def get_current_positions(self) -> list[tuple[str, float]]:
         """
-        used to automtically sell left over positions
+        used to automatically sell left over positions
         :return: list of (symbol, amount)
         """
         self._chrome_inst.open("https://client.schwab.com/app/accounts/positions/#/")
@@ -210,8 +210,8 @@ class Schwab(Broker):
             page_source = self._chrome_inst.get_page_source()
             df = pd.read_html(StringIO(page_source))
             df = df[0]
-            df = df.drop(df.index[[0, -1, -2, -3, -4, -5]])
-            positions = df[["Symbol", "Quantity"]].to_numpy()
+            df = df[["Symbol", "Quantity"]].drop(df.index[[-1, -2]])
+            positions = df.to_numpy()
             positions = [(x[0], float(x[1])) for x in positions]
         except Exception as e:
             print("Error getting current positions", e)
@@ -223,7 +223,5 @@ class Schwab(Broker):
 if __name__ == '__main__':
     s = Schwab("temp.csv", BrokerNames.SB)
     s.login()
-    s.buy("VRM", 1)
-    time.sleep(1)
-    s.sell("VRM", 1)
+    s.get_current_positions()
     pass

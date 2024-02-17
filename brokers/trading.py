@@ -59,7 +59,7 @@ class AutomatedTrading:
 
         count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
 
-        sell_time_limit = datetime.now().replace(hour=12, minute=35, second=0, microsecond=0)
+        sell_time_limit = datetime.now().replace(hour=12, minute=30, second=0, microsecond=0)
 
         buy_time = datetime.now() + timedelta(minutes = 1)
         sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)

@@ -8,7 +8,7 @@ from utils.report.report import OrderType, StockData, ReportEntry, ActionType, B
 
 NULL_ENTRY = pd.Series(index = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol', 'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote', 'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume', 'Order Type', 'Split', 'Order ID', 'Activity ID'])
 class Broker(ABC):
-    THRESHOLD = 1000
+    THRESHOLD = 1200
 
     def __init__(self, report_file: Union[Path, str], broker_name: BrokerNames):
         self._broker_name = broker_name
