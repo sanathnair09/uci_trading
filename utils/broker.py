@@ -51,6 +51,22 @@ class Broker(ABC):
         pass
 
     @abstractmethod
+    def _buy_call_option(self, sym: str, strike: float, expiration: str):
+        pass
+
+    @abstractmethod
+    def _sell_call_option(self, sym: str, strike: float, expiration: str):
+        pass
+
+    @abstractmethod
+    def _buy_put_option(self, sym: str, strike: float, expiration: str):
+        pass
+
+    @abstractmethod
+    def _sell_put_option(self, sym: str, strike: float, expiration: str):
+        pass
+
+    @abstractmethod
     def get_current_positions(self):
         pass
     @abstractmethod
