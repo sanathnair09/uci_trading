@@ -202,7 +202,7 @@ class Fidelity(Broker):
         # def save_string_to_file(content: str, filename: str):
         #     with open(filename, 'w') as file:
         #         file.write(content)
-        # self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
+        self._chrome_inst.open('https://digital.fidelity.com/ftgw/digital/portfolio/activity')
         data_exists = input("Fidelity (load more results)?")
 
 
