@@ -61,7 +61,7 @@ class Fidelity(Broker):
             quote = self._chrome_inst.find(By.XPATH,
                                            '//*[@id="ett-more-quote-info"]/div/div/div/div/div[2]/div[1]/div[2]/span').text
         quote = quote.replace(",", "")
-        symbol_elem.clear()
+        symbol_elem.send_keys(Keys.BACKSPACE * 5)
         return StockData(float(ask_price), float(bid_price), float(quote[1:]), float(volume))
 
     def buy(self, sym: str, amount: int):
@@ -108,6 +108,7 @@ class Fidelity(Broker):
         self._preview_order()
         time.sleep(2)
         self._check_error_msg(sym, amount, action)
+        time.sleep(1)
         self._place_order()
         self._place_new_order()
 
