@@ -4,6 +4,7 @@ from pathlib import Path
 import tda.auth
 from loguru import logger
 from tda.orders.equities import equity_buy_market, equity_sell_market
+from tda.orders.options import option_buy_to_open_market, option_sell_to_close_market
 
 from utils.broker import Broker
 from brokers import TD_KEY, TD_URI, TD_TOKEN_PATH, TD_ACC_NUM
@@ -130,6 +131,25 @@ class TDAmeritrade(Broker):
     def _limit_sell(self, sym: str, amount: int, limit_price: float):
         return NotImplementedError
 
+    def _buy_call_option(self, sym: str, strike: float, expiration: str):
+        from datetime import datetime
+        formatted_date = datetime.strptime(expiration, "%Y-%m-%d").strftime("%m%d%y")
+        sym = f"{sym}_{formatted_date}C{strike}"
+        self._client.place_order(TD_ACC_NUM, option_buy_to_open_market(sym, 1).build())
+                                              
+    
+    def _sell_call_option(self, sym: str, strike: float, expiration: str):
+        from datetime import datetime
+        formatted_date = datetime.strptime(expiration, "%Y-%m-%d").strftime("%m%d%y")
+        sym = f"{sym}_{formatted_date}C{strike}"
+        self._client.place_order(TD_ACC_NUM, option_sell_to_close_market(sym, 1).build())
+    
+    def _buy_put_option(self, sym: str, strike: float, expiration: str):
+        return NotImplementedError
+    
+    def _sell_put_option(self, sym: str, strike: float, expiration: str):
+        return NotImplementedError
+    
     def get_current_positions(self):
         positions = self._client.get_account(TD_ACC_NUM, fields = [
             tda.client.Client.Account.Fields.POSITIONS]
