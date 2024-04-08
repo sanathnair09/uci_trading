@@ -1,44 +1,41 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+import time
+from typing import Optional
 
 import tda.auth
-from loguru import logger
 from tda.orders.equities import equity_buy_market, equity_sell_market
-from tda.orders.options import option_buy_to_open_market, option_sell_to_close_market
+from tda.orders.options import (
+    option_buy_to_open_market,
+    option_sell_to_close_market,
+    OptionSymbol,
+)
 
-from utils.broker import Broker
-from brokers import TD_KEY, TD_URI, TD_TOKEN_PATH, TD_ACC_NUM
+from brokers import TD_ACC_NUM, TD_KEY, TD_TOKEN_PATH, TD_URI
+from utils.broker import Broker, OptionOrder, StockOrder
+from utils.market_data import MarketData
+from utils.report.report import (
+    ActionType,
+    BrokerNames,
+    OptionData,
+    OptionReportEntry,
+    OptionType,
+    OrderType,
+    ReportEntry,
+    StockData,
+)
 from utils.selenium_helper import CustomChromeInstance
-from utils.misc import repeat_on_fail, calculate_num_stocks_to_buy
-from utils.report.report import StockData, ActionType, OrderType, BrokerNames
+from utils.util import parse_option_string
 
 
 class TDAmeritrade(Broker):
-    def __init__(self, report_file: Path, broker_name: BrokerNames):
-        super().__init__(report_file, broker_name)
-        self._client: tda.client.Client = None
-
-    @staticmethod
-    def validate_stock(sym: str):
-        client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
-        res = client.get_quotes(sym).json()
-        valid = sym in res and res[sym]["description"] != "Symbol not found"
-        if not valid:
-            logger.error(f"{sym} not valid")
-        return valid
-
-    @staticmethod
-    def get_stock_amount(sym: str) -> tuple[int, float]:
-        client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
-        price = client.get_quotes(sym).json()[sym]['lastPrice']
-        return calculate_num_stocks_to_buy(100, price), price
-
-    @staticmethod
-    def get_stock_data(sym: str) -> StockData:
-        client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)  # Path.cwd().parent /
-        stock_data = client.get_quotes(sym).json()[sym]
-        return StockData(stock_data["askPrice"], stock_data["bidPrice"],
-                         stock_data["lastPrice"], stock_data["totalVolume"])
+    def __init__(
+        self,
+        report_file: Path,
+        broker_name: BrokerNames,
+        option_report_file: Optional[Path] = None,
+    ):
+        super().__init__(report_file, broker_name, option_report_file)
 
     def login(self):
         try:
@@ -46,127 +43,287 @@ class TDAmeritrade(Broker):
         except:  # if the token is expired or some other issue try logging in using a browser
             print("Issue logging in with token trying manual...")
             driver = CustomChromeInstance.createInstance()
-            self._client = tda.auth.client_from_login_flow(driver, TD_KEY, TD_URI,
-                                                           TD_TOKEN_PATH)
+            self._client = tda.auth.client_from_login_flow(
+                driver, TD_KEY, TD_URI, TD_TOKEN_PATH
+            )
 
-    @repeat_on_fail()
     def _get_stock_data(self, sym: str) -> StockData:
-        stock_data = self._client.get_quotes(sym).json()[sym]
-        return StockData(stock_data["askPrice"], stock_data["bidPrice"],
-                         stock_data["lastPrice"], stock_data["totalVolume"])
+        return MarketData.get_stock_data(sym)
+
+    def _get_option_data(self, option: OptionOrder) -> OptionData:
+        return MarketData.get_option_data(option)
 
     def _get_latest_order(self):
-        return self._client.get_orders_by_path(TD_ACC_NUM,
-                                               from_entered_datetime = datetime.now(),
-                                               to_entered_datetime = datetime.now() + timedelta(
-                                                   1)).json()[0]
+        return self._client.get_orders_by_path(
+            TD_ACC_NUM,
+            from_entered_datetime=datetime.now(),
+            to_entered_datetime=datetime.now() + timedelta(1),
+        ).json()[0]
 
-    def buy(self, sym: str, amount: int):
+    def buy(self, order: StockOrder):
         ### PRE BUY INFO ###
-        pre_stock_data = self._get_stock_data(sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        pre_stock_data = self._get_stock_data(order.sym)
+        program_submitted = self._get_current_time()
 
         ### BUY ###
-        self._market_buy(sym, amount)
+        if order.order_type == OrderType.MARKET:
+            self._market_buy(order)
+        else:
+            self._limit_buy(order)
 
         ### POST BUY INFO ###
-        program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = self._get_stock_data(sym)
+        program_executed = self._get_current_time()
+        post_stock_data = self._get_stock_data(order.sym)
 
-        order_data = self._get_latest_order()
+        # broker executed time is left to save_report method since some brokers provide or don't provide it
+        self._save_report(
+            order.sym,
+            ActionType.BUY,
+            program_executed,
+            program_submitted,
+            pre_stock_data,
+            post_stock_data,
+        )
 
-        for activity in order_data["orderActivityCollection"]:
-            TD_ct = activity['executionLegs'][0]['time'][11:]
-            TD_ct_hour = str(int(TD_ct[:2]) - 7)
-            if len(TD_ct_hour) == 1:
-                TD_ct_hour = "0" + TD_ct_hour
-            broker_executed = TD_ct_hour + TD_ct[2:-5]
-
-            self._add_report(program_submitted, program_executed, broker_executed, sym,
-                             ActionType.BUY,
-                             activity["quantity"], activity["executionLegs"][0]['price'],
-                             activity["quantity"] * activity["executionLegs"][0]['price'],
-                             pre_stock_data, post_stock_data, OrderType.MARKET,
-                             len(order_data["orderActivityCollection"]) > 1, order_data["orderId"],
-                             order_data["orderActivityCollection"][0]["activityId"])
-
-    def sell(self, sym: str, amount: int):
+    def sell(self, order: StockOrder):
         ### PRE BUY INFO ###
-        pre_stock_data = self._get_stock_data(sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        pre_stock_data = self._get_stock_data(order.sym)
+        program_submitted = self._get_current_time()
 
         ### BUY ###
-        self._market_sell(sym, amount)
+        if order.order_type == OrderType.MARKET:
+            self._market_sell(order)
+        else:
+            self._limit_sell(order)
 
         ### POST BUY INFO ###
-        program_executed = datetime.now().strftime("%X:%f")
-        post_stock_data = self._get_stock_data(sym)
+        program_executed = self._get_current_time()
+        post_stock_data = self._get_stock_data(order.sym)
 
-        order_data = self._get_latest_order()
+        # broker executed time is left to save_report method since some brokers provide or don't provide it
+        self._save_report(
+            order.sym,
+            ActionType.SELL,
+            program_executed,
+            program_submitted,
+            pre_stock_data,
+            post_stock_data,
+        )
 
-        for activity in order_data["orderActivityCollection"]:
-            TD_ct = activity['executionLegs'][0]['time'][11:]
-            TD_ct_hour = str(int(TD_ct[:2]) - 7)
-            if len(TD_ct_hour) == 1:
-                TD_ct_hour = "0" + TD_ct_hour
-            broker_executed = TD_ct_hour + TD_ct[2:-5]
+    def buy_option(self, order: OptionOrder):
+        ### PRE BUY INFO ###
+        pre_stock_data = self._get_option_data(order)
+        program_submitted = self._get_current_time()
 
-            self._add_report(program_submitted, program_executed, broker_executed, sym,
-                             ActionType.SELL,
-                             activity["quantity"], activity["executionLegs"][0]['price'],
-                             activity["quantity"] * activity["executionLegs"][0]['price'],
-                             pre_stock_data, post_stock_data, OrderType.MARKET,
-                             len(order_data["orderActivityCollection"]) > 1, order_data["orderId"],
-                             order_data["orderActivityCollection"][0]["activityId"])
+        ### BUY ###
+        if order.option_type == OptionType.CALL:
+            self._buy_call_option(order)
+        else:
+            self._buy_put_option(order)
 
-    def _market_buy(self, sym: str, amount: int):
-        self._client.place_order(TD_ACC_NUM, equity_buy_market(sym, amount).build())
+        ### POST BUY INFO ###
+        program_executed = self._get_current_time()
+        post_stock_data = self._get_option_data(order)
 
-    def _market_sell(self, sym: str, amount: int):
-        self._client.place_order(TD_ACC_NUM, equity_sell_market(sym, amount).build())
+        self._save_option_report(
+            order,
+            ActionType.BUY,
+            program_executed,
+            program_submitted,
+            pre_stock_data,
+            post_stock_data,
+        )
+        time.sleep(1)
 
-    def _limit_buy(self, sym: str, amount: int, limit_price: float):
+    def sell_option(self, order: OptionOrder):
+        ### PRE SELL INFO ###
+        pre_stock_data = self._get_option_data(order)
+        program_submitted = self._get_current_time()
+
+        ### SELL ###
+        if order.option_type == OptionType.CALL:
+            self._sell_call_option(order)
+        else:
+            self._sell_put_option(order)
+
+        ### POST SELL INFO ###
+        program_executed = self._get_current_time()
+        post_stock_data = self._get_option_data(order)
+
+        self._save_option_report(
+            order,
+            ActionType.SELL,
+            program_executed,
+            program_submitted,
+            pre_stock_data,
+            post_stock_data,
+        )
+        time.sleep(1)
+
+    def _market_buy(self, order):
+        self._client.place_order(
+            TD_ACC_NUM, equity_buy_market(order.sym, order.quantity).build()
+        )
+
+    def _market_sell(self, order):
+        self._client.place_order(
+            TD_ACC_NUM, equity_sell_market(order.sym, order.quantity).build()
+        )
+
+    def _limit_buy(self, order):
         return NotImplementedError
 
-    def _limit_sell(self, sym: str, amount: int, limit_price: float):
+    def _limit_sell(self, order):
         return NotImplementedError
 
-    def _buy_call_option(self, sym: str, strike: float, expiration: str):
-        from datetime import datetime
-        formatted_date = datetime.strptime(expiration, "%Y-%m-%d").strftime("%m%d%y")
-        sym = f"{sym}_{formatted_date}C{strike}"
+    def _buy_call_option(self, order: OptionOrder):
+        sym = OptionSymbol(
+            order.sym,
+            datetime.strptime(order.expiration, "%Y-%m-%d"),
+            "C",
+            str(order.strike),
+        ).build()
+
         self._client.place_order(TD_ACC_NUM, option_buy_to_open_market(sym, 1).build())
-                                              
-    
-    def _sell_call_option(self, sym: str, strike: float, expiration: str):
-        from datetime import datetime
-        formatted_date = datetime.strptime(expiration, "%Y-%m-%d").strftime("%m%d%y")
-        sym = f"{sym}_{formatted_date}C{strike}"
-        self._client.place_order(TD_ACC_NUM, option_sell_to_close_market(sym, 1).build())
-    
-    def _buy_put_option(self, sym: str, strike: float, expiration: str):
+
+    def _sell_call_option(self, order: OptionOrder):
+        sym = OptionSymbol(
+            order.sym,
+            datetime.strptime(order.expiration, "%Y-%m-%d"),
+            "C",
+            str(order.strike),
+        ).build()
+
+        self._client.place_order(
+            TD_ACC_NUM, option_sell_to_close_market(sym, 1).build()
+        )
+
+    def _buy_put_option(self, order: OptionOrder):
         return NotImplementedError
-    
-    def _sell_put_option(self, sym: str, strike: float, expiration: str):
+
+    def _sell_put_option(self, order: OptionOrder):
         return NotImplementedError
-    
+
+    def _save_report(
+        self,
+        sym: str,
+        action_type: ActionType,
+        program_submitted,
+        program_executed,
+        pre_stock_data: StockData,
+        post_stock_data: StockData,
+        **kwargs,
+    ):
+        order_data = self._get_latest_order()
+
+        for activity in order_data["orderActivityCollection"]:
+            TD_ct = activity["executionLegs"][0]["time"][11:]
+            TD_ct_hour = str(int(TD_ct[:2]) - 7)
+            if len(TD_ct_hour) == 1:
+                TD_ct_hour = "0" + TD_ct_hour
+            broker_executed = TD_ct_hour + TD_ct[2:-5]
+
+            self._add_report_to_file(
+                ReportEntry(
+                    program_submitted,
+                    program_executed,
+                    broker_executed,
+                    sym,
+                    action_type,
+                    activity["quantity"],
+                    activity["executionLegs"][0]["price"],
+                    activity["quantity"] * activity["executionLegs"][0]["price"],
+                    pre_stock_data,
+                    post_stock_data,
+                    OrderType.MARKET,
+                    len(order_data["orderActivityCollection"]) > 1,
+                    order_data["orderId"],
+                    activity["activityId"],
+                    BrokerNames.TD,
+                )
+            )
+
+        self._save_report_to_file()
+
+    def _save_option_report(
+        self,
+        order: OptionOrder,
+        action_type: ActionType,
+        program_submitted,
+        program_executed,
+        pre_stock_data: OptionData,
+        post_stock_data: OptionData,
+        **kwargs,
+    ):
+        order_data = self._get_latest_order()
+
+        for activity in order_data["orderActivityCollection"]:
+            TD_ct = activity["executionLegs"][0]["time"][11:]
+            TD_ct_hour = str(int(TD_ct[:2]) - 7)
+            if len(TD_ct_hour) == 1:
+                TD_ct_hour = "0" + TD_ct_hour
+            broker_executed = TD_ct_hour + TD_ct[2:-5]
+
+            self._add_option_report_to_file(
+                OptionReportEntry(
+                    program_submitted,
+                    program_executed,
+                    broker_executed,
+                    order.sym,
+                    order.strike,
+                    order.option_type,
+                    order.expiration,
+                    action_type,
+                    activity["executionLegs"][0]["price"],
+                    pre_stock_data,
+                    post_stock_data,
+                    OrderType.MARKET,
+                    order_data["destinationLinkName"],
+                    order_data["orderId"],
+                    activity["activityId"],
+                    BrokerNames.TD,
+                )
+            )
+
+        self._save_option_report_to_file()
+
     def get_current_positions(self):
-        positions = self._client.get_account(TD_ACC_NUM, fields = [
-            tda.client.Client.Account.Fields.POSITIONS]
-                                             ).json()['securitiesAccount']["positions"]
+        positions = self._client.get_account(
+            TD_ACC_NUM, fields=[tda.client.Client.Account.Fields.POSITIONS]
+        ).json()["securitiesAccount"]["positions"]
         current_positions = []
+        current_option_positions = []
         for position in positions:
-            current_positions.append((position["instrument"]["symbol"], position["longQuantity"]))
+            if position["instrument"]["assetType"] == "OPTION":
+                symbol, month, date, year, strike, option_type = position["instrument"][
+                    "description"
+                ].split(" ")
+                option_type = (
+                    OptionType.CALL if option_type.upper() == "CALL" else OptionType.PUT
+                )
+                current_option_positions.append(
+                    OptionOrder(
+                        symbol,
+                        OrderType.MARKET,
+                        option_type,
+                        float(strike),
+                        f"{year}-{datetime.strptime(month,'%b').strftime('%m')}-{date}",
+                    )
+                )
+            else:
+                current_positions.append(
+                    (position["instrument"]["symbol"], position["longQuantity"])
+                )
 
-        return current_positions
+        return current_positions, current_option_positions
 
-    def resolve_errors(self):
-        return NotImplementedError
+    def temp(self, id):
+        res = self._client.get_order(id, TD_ACC_NUM).json()
+        print(res)
 
 
-if __name__ == '__main__':
-    td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD)
+if __name__ == "__main__":
+    td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD, Path("temp_option.csv"))
     td.login()
-    res = td.get_current_positions()
-    print(res)
+    # print(td.get_current_positions())
     pass

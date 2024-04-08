@@ -1,97 +1,65 @@
+import random
 import time
 from datetime import datetime, timedelta
-import random
 from pyexpat import ExpatError
+from typing import Optional
 
 import schedule
 from loguru import logger
 
+from brokers import Robinhood, Fidelity, ETrade, TDAmeritrade, Schwab
+from utils.broker import Broker, OptionOrder, StockOrder
+from utils.market_data import MarketData
 from utils.program_manager import ProgramManager, SYM_LIST_LEN, SYM_LIST
-from brokers import TDAmeritrade, Robinhood, ETrade, Schwab, Fidelity, IBKR
 from utils.report.post_processing import PostProcessing
-from utils.report.report import ActionType, BrokerNames
+from utils.report.report import ActionType, BrokerNames, OrderType
+from utils.util import (
+    format_list_of_orders,
+    parse_option_string,
+    parse_stock_string,
+    process_option_input,
+)
 
 
 class AutomatedTrading:
-    def __init__(self, *, time_between_buy_and_sell: float,
-                 time_between_groups: float, enable_stdout = False, debug = False):
+    def __init__(
+        self,
+        *,
+        time_between_buy_and_sell: float,
+        time_between_groups: float,
+        enable_stdout=False,
+    ):
         logger.info("Beginning Automated Trading")
+
+        self._options_list = process_option_input()
+        logger.info("Trading Options: " + str(self._options_list))
 
         self._time_between_buy_and_sell = time_between_buy_and_sell
         self._time_between_groups = time_between_groups
-        self._debug = debug
 
-        self._manager = ProgramManager(enable_stdout = enable_stdout)
-        report_file = self._manager.report_file()
+        self._manager = ProgramManager(enable_stdout=enable_stdout)
+        report_file, option_report_file = (
+            self._manager.report_file,
+            self._manager.option_report_file,
+        )
 
-        self._brokers = [
-            [TDAmeritrade(report_file, BrokerNames.TD), ],
-            [Robinhood(report_file, BrokerNames.RH), ],
-            [ETrade(report_file, BrokerNames.ET),],
-            [Fidelity(report_file, BrokerNames.FD)],
-            [IBKR(report_file, BrokerNames.IF)],
-            # [Schwab(report_file, BrokerNames.SB)],
+        self._brokers: list[Broker] = [
+            TDAmeritrade(report_file, BrokerNames.TD, option_report_file),
+            Robinhood(report_file, BrokerNames.RH, option_report_file),
+            ETrade(report_file, BrokerNames.E2, option_report_file),
+            Fidelity(report_file, BrokerNames.FD, option_report_file),
+            # IBKR(report_file, BrokerNames.IF),
+            Schwab(report_file, BrokerNames.SB, option_report_file),
         ]
 
-        self._fractionals = [.1, .25, .5, .75, 0.9]
+        self._fractionals = [0.1, 0.25, 0.5, 0.75, 0.9]
 
         self._login_all()
 
     def _login_all(self):
-        for group in self._brokers:
-            for broker in group:
-                broker.login()
+        for broker in self._brokers:
+            broker.login()
         logger.info("Finished Logging into all brokers...")
-
-    def _schedule(self):
-        if self._manager.get_program_data("DATE") != datetime.now().strftime("%x"): # program is run on new day
-            self._manager.update_program_data("DATE", datetime.now().strftime("%x"))
-            if self._manager.get_program_data("COMPLETED") != SYM_LIST_LEN: # resuming from previous run
-                last_stock_name = self._manager.get_program_data("PREVIOUS_STOCK_NAME")
-                current_idx = (SYM_LIST.index(last_stock_name) + 1) % SYM_LIST_LEN
-            else: # choose random stock and begin from there
-                random_sym = random.choice(SYM_LIST)
-                current_idx = SYM_LIST.index(random_sym)
-            self._manager.update_program_data("COMPLETED", 0)
-        else:
-            last_stock_name = self._manager.get_program_data("PREVIOUS_STOCK_NAME")
-            current_idx = (SYM_LIST.index(last_stock_name) + 1) % SYM_LIST_LEN
-
-        count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
-
-        sell_time_limit = datetime.now().replace(hour=12, minute=30, second=0, microsecond=0)
-
-        buy_time = datetime.now() + timedelta(minutes = 1)
-        sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
-
-        while count > 0 and sell_time < sell_time_limit:
-            sym_list = SYM_LIST[current_idx:current_idx + 4]  # chooses next 4 stocks to trade
-            # sym_list = [sym for sym in sym_list if TDAmeritrade.validate_stock(sym)]
-            logger.info(sym_list)
-            logger.info(f"Buying at: {buy_time.strftime('%H:%M')}")
-            logger.info(f"Selling at: {sell_time.strftime('%H:%M')}")
-
-            # randomly order brokers for each group
-            # since we only trade one of each we don't need to shuffle inner list individually
-            random.shuffle(self._brokers)
-            # randomly choose fractional price to trade
-
-            # fractional = random.choice(self._fractionals)
-
-            schedule.every().day.at(buy_time.strftime("%H:%M")).do(self._buy_across_brokers,
-                                                                   sym_list = sym_list,
-                                                                   fractional = None,
-                                                                   brokers = self._brokers[
-                                                                             :])  # create new copy
-            schedule.every().day.at(sell_time.strftime("%H:%M")).do(self._sell_across_brokers,
-                                                                    brokers = self._brokers[:])
-
-            buy_time = sell_time + timedelta(minutes = self._time_between_groups)
-            sell_time = buy_time + timedelta(minutes = self._time_between_buy_and_sell)
-            current_idx = (current_idx + 4) % SYM_LIST_LEN
-            count -= 4
-
-        logger.info("Done scheduling")
 
     def start(self):
         self._schedule()
@@ -103,7 +71,77 @@ class AutomatedTrading:
                 logger.info("Finished trading")
                 break
 
-        # self.generate_report()
+    def _pre_schedule_processing(self):
+        # program is run on new day
+        if self._manager.get_program_data("DATE") != datetime.now().strftime("%x"):
+            self._manager.update_program_data("DATE", datetime.now().strftime("%x"))
+            # resuming from previous run
+            if self._manager.get_program_data("COMPLETED") != SYM_LIST_LEN:
+                last_stock_name = self._manager.get_program_data("PREVIOUS_STOCK_NAME")
+                current_idx = (SYM_LIST.index(last_stock_name) + 1) % SYM_LIST_LEN
+            else:  # choose random stock and begin from there
+                random_sym = random.choice(SYM_LIST)
+                current_idx = SYM_LIST.index(random_sym)
+            self._manager.update_program_data("COMPLETED", 0)
+            self._manager.update_program_data("COMPLETED_OPTIONS", 0)
+        else:
+            last_stock_name = self._manager.get_program_data("PREVIOUS_STOCK_NAME")
+            current_idx = (SYM_LIST.index(last_stock_name) + 1) % SYM_LIST_LEN
+
+        return current_idx, self._manager.get_program_data("COMPLETED_OPTIONS")
+
+    def _schedule(self):
+        current_idx, completed_options = self._pre_schedule_processing()
+
+        # need to subtract in the case when re-running on same day and already completed some trades
+        count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
+        option_idx = completed_options  # needed for array indexing
+
+        SELL_TIME_LIMIT = datetime.now().replace(
+            hour=12, minute=30, second=0, microsecond=0
+        )
+
+        buy_time = datetime.now() + timedelta(minutes=1)
+        sell_time = buy_time + timedelta(minutes=self._time_between_buy_and_sell)
+
+        while count > 0 and sell_time < SELL_TIME_LIMIT:
+            # chooses next 4 stocks to trade
+            sym_list = SYM_LIST[current_idx : current_idx + 4]
+            # sym_list = [sym for sym in sym_list if MarketData.validate_stock(sym)]
+
+            logger.info(sym_list)
+            logger.info(f"Buying at: {buy_time.strftime('%H:%M')}")
+            logger.info(f"Selling at: {sell_time.strftime('%H:%M')}")
+
+            # randomly choose fractional price to trade
+            fractional = random.choice(self._fractionals)
+
+            option = (
+                self._options_list[option_idx]
+                if 0 <= option_idx < len(self._options_list)
+                else None
+            )
+            if option:
+                logger.info(self._options_list[option_idx])
+
+            schedule.every().day.at(buy_time.strftime("%H:%M")).do(
+                self._buy_across_brokers,
+                sym_list=sym_list,
+                option=option,
+                fractional=fractional,
+            )
+
+            schedule.every().day.at(sell_time.strftime("%H:%M")).do(
+                self._sell_across_brokers,
+            )
+
+            buy_time = sell_time + timedelta(minutes=self._time_between_groups)
+            sell_time = buy_time + timedelta(minutes=self._time_between_buy_and_sell)
+            current_idx = (current_idx + 4) % SYM_LIST_LEN
+            count -= 4
+            option_idx += 1
+
+        logger.info("Done scheduling")
 
     def manual_override(self, stock_list, action: ActionType = ActionType.SELL):
         """
@@ -111,104 +149,224 @@ class AutomatedTrading:
         :param action:
         :param stock_list: list of tuple (stock, amount)
         """
-        stock_list = [(x[1], None, x[0]) for x in stock_list]  # needed to fix stock list for method
-        self._perform_action(stock_list, action, brokers = self._brokers)
+        # needed to fix stock list for method
+        if action == ActionType.CLOSE:
+            option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+            for option in stock_list:
+                self._perform_option_action(
+                    option_brokers, option, action, main_program=False
+                )
+        else:
+            stock_list = [
+                StockOrder(x[0], x[1], 0, OrderType.MARKET) for x in stock_list
+            ]
+            brokers = self._choose_brokers([])
+            self._perform_action(brokers, stock_list, action, main_program=False)
 
     def sell_leftover_positions(self):
-        for group in self._brokers:
-            for broker in group:
+        for broker in self._brokers:
+            try:
+                positions, option_position = broker.get_current_positions()
+                leftover = [
+                    StockOrder(sym, float(quantity), 0, OrderType.MARKET)
+                    for sym, quantity in positions
+                    if sym in SYM_LIST
+                ]
+                print(broker.name(), str(leftover), str(option_position))
+
+                for order in leftover:
+                    broker.sell(order)
+
+                for order in option_position:
+                    broker.sell_option(order)
+
+            except ExpatError:
+                print(broker.name(), "No positions")
+            except Exception as e:
+                logger.error(e)
+
+    def _choose_brokers(self, brokers: Optional[list[str]]) -> list[Broker]:
+        """
+        :param `brokers` list of broker names to enable (if none returns all)
+        :returns all the brokers that are enabled
+        """
+        selected: list[Broker] = []
+        if not brokers:
+            selected = self._brokers.copy()  # to prevent modifying original list
+        else:
+            for broker in self._brokers:
+                for item in brokers:
+                    if broker.name() == item:
+                        selected.append(broker)
+
+        random.shuffle(selected)
+        return selected
+
+    def _perform_action(
+        self,
+        brokers: list[Broker],
+        stock_list: list[StockOrder],
+        action: ActionType,
+        enable: Optional[list[str]] = None,
+        main_program: bool = True,
+    ):
+        for order in stock_list:
+            for broker in brokers:
                 try:
-                    leftover = broker.get_current_positions()
-                    to_sell = [(sym, float(amount)) for sym, amount in leftover if sym in SYM_LIST]
-                    print(broker.name(), to_sell)
-                    for sym, amount in to_sell:
-                        broker.sell(sym, amount)
-                        broker.save_report()
-                except ExpatError:
-                    print(broker.name(), "No positions")
+                    if action == ActionType.BUY:
+                        broker.buy(order)
+                    else:
+                        broker.sell(order)
                 except Exception as e:
                     logger.error(e)
+                    logger.error(
+                        f"{broker.name()} Error {'buying' if action == ActionType.BUY else 'selling'} {order.quantity} '{order.sym}' stocks"
+                    )
 
-    def _perform_action(self, stock_list, action: ActionType, brokers: list, enable = None, main_program: bool = True):
-        if enable:
-            selected = []
-            for group in brokers:
-                for br in group:
-                    for item in enable:
-                        if br.name() == item:
-                            selected.append([br])
-                            # since we are only trading one of each account we don't have to worry about dealing with multiple
-            brokers = selected
-        for amount, _, sym in stock_list:
-            for group in brokers:
-                for broker in group:
-                    try:
-                        if action == ActionType.BUY:
-                            broker.buy(sym, amount)
-                        else:
-                            broker.sell(sym, amount)
-                        broker.save_report()
-                    except Exception as e:
-                        logger.error(
-                            f"{broker.name()} Error {'buying' if action == ActionType.BUY else 'selling'} {amount} '{sym}' stocks")
-                    # broker.resolve_errors()
             if main_program:
                 if action == ActionType.BUY:
-                    completed = self._manager.get_program_data("COMPLETED") + 1
-                    self._manager.update_program_data("COMPLETED", completed)
-                self._manager.update_program_data("PREVIOUS_STOCK_NAME", sym)
+                    self._manager.update_program_data(
+                        "COMPLETED", self._manager.get_program_data("COMPLETED") + 1
+                    )
+                self._manager.update_program_data("PREVIOUS_STOCK_NAME", order.sym)
 
-    def _buy_across_brokers(self, sym_list: list[str], fractional: float, brokers: list):
+    def _perform_option_action(
+        self,
+        brokers: list[Broker],
+        order: OptionOrder,
+        action: ActionType,
+        main_program: bool = True,
+    ):
+        for broker in brokers:
+            try:
+                if action == ActionType.BUY:
+                    broker.buy_option(order)
+                else:
+                    broker.sell_option(order)
+            except Exception as e:
+                logger.error(e)
+                logger.error(
+                    f"{broker.name()} Error {'buying' if action == ActionType.BUY else 'selling'} {order}"
+                )
+
+        if main_program and action == ActionType.BUY:
+            self._manager.update_program_data(
+                "COMPLETED_OPTIONS",
+                self._manager.get_program_data("COMPLETED_OPTIONS") + 1,
+            )
+
+    def _buy_across_brokers(
+        self,
+        sym_list: list[str],
+        option: OptionOrder,
+        fractional: float,
+    ):
         self._manager.update_program_data("STATUS", "Buy")
 
-        stock_list = [(*TDAmeritrade.get_stock_amount(sym), sym) for sym
-                      in sym_list]
-        # big_trades = [(100, price, sym) for amount, price, sym in stock_list if price <= 30]
-        # fractional_trades = [(fractional, price, sym) for amount, price, sym in stock_list if
-        #                      price >= 20]
+        brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+        fractional_brokers = self._choose_brokers(["FD", "IF", "RH"])
+        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
 
-        self._manager.update_program_data("CURRENTLY_TRADING_STOCKS", stock_list)
+        # order_list = [StockOrder(sym, quantity, price, OrderType, limit), ...]
+        orders = [
+            StockOrder(sym, *MarketData.get_stock_amount(sym), OrderType.MARKET)
+            for sym in sym_list
+        ]
+
+        fractional_orders = [
+            StockOrder(order.sym, fractional, order.price, order.order_type)
+            for order in orders
+            if order.price >= 20
+        ]
+
+        # big_orders = [
+        #     StockOrder(order.sym, 100, order.price, order.order_type, order.limit_price)
+        #     for order in orders
+        #     if order.price <= 30
+        # ]
+
+        self._manager.update_program_data(
+            "CURRENTLY_TRADING_STOCKS", format_list_of_orders(orders)
+        )
+
         # self._manager.update_program_data("CURRENT_BIG_TRADES", big_trades)
-        # self._manager.update_program_data("CURRENT_FRACTIONAL_TRADES", fractional_trades)
+        self._manager.update_program_data(
+            "CURRENT_FRACTIONAL_TRADES", format_list_of_orders(fractional_orders)
+        )
 
-        logger.info(f"Currently Buying: {str(stock_list)}")
-        self._perform_action(stock_list, ActionType.BUY, brokers = brokers)
+        logger.info(f"Currently Buying: {str(orders)}")
+        self._perform_action(brokers, orders, ActionType.BUY)
 
         # logger.info(f"Big Trades: {str(big_trades)}")
         # self._perform_action(big_trades, ActionType.BUY, brokers = brokers, enable = ["FD"])
         #
-        # logger.info(f"Fractional Trades: {str(fractional_trades)}")
-        # self._perform_action(fractional_trades, ActionType.BUY, brokers = brokers,
-        #                      enable = ["FD", "IF", "RH"])
+
+        logger.info(f"Fractional Trades: {str(fractional_orders)}")
+        self._perform_action(
+            fractional_brokers,
+            fractional_orders,
+            ActionType.BUY,
+            enable=["FD", "IF", "RH"],
+        )
+
+        if option:
+            self._manager.update_program_data("CURRENTLY_TRADING_OPTION", str(option))
+            logger.info(f"Currently Buying: {option}")
+            self._perform_option_action(option_brokers, option, ActionType.BUY)
+        else:
+            self._manager.update_program_data("CURRENTLY_TRADING_OPTION", "")
 
         logger.info("Done Buying...\n")
+        return schedule.CancelJob
 
-    def _sell_across_brokers(self, brokers: list):
+    def _sell_across_brokers(
+        self,
+    ):
         self._manager.update_program_data("STATUS", "Sell")
 
-        stock_list = self._manager.get_program_data("CURRENTLY_TRADING_STOCKS")
-        # big_trades = self._manager.get_program_data("CURRENT_BIG_TRADES")
-        # fractional_trades = self._manager.get_program_data("CURRENT_FRACTIONAL_TRADES")
+        brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+        fractional_brokers = self._choose_brokers(["FD", "IF", "RH"])
+        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
 
-        logger.info(f"Currently Selling: {str(stock_list)}")
-        self._perform_action(stock_list, ActionType.SELL, brokers = brokers)
+        orders = parse_stock_string(
+            self._manager.get_program_data("CURRENTLY_TRADING_STOCKS")
+        )
+
+        # big_trades = self._manager.get_program_data("CURRENT_BIG_TRADES")
+        fractional_trades = parse_stock_string(
+            self._manager.get_program_data("CURRENT_FRACTIONAL_TRADES")
+        )
+
+        logger.info(f"Currently Selling: {format_list_of_orders(orders)}")
+        self._perform_action(brokers, orders, ActionType.SELL)
 
         # logger.info(f"Big Trades: {str(big_trades)}")
         # self._perform_action(big_trades, ActionType.SELL, brokers = brokers, enable = ["FD"])
-        #
-        # logger.info(f"Fractional Trades: {str(fractional_trades)}")
-        # self._perform_action(fractional_trades, ActionType.SELL, brokers = brokers,
-        #                      enable = ["FD", "IF", "RH"])
+
+        logger.info(f"Fractional Trades: {format_list_of_orders(fractional_trades)}")
+        self._perform_action(
+            fractional_brokers,
+            fractional_trades,
+            ActionType.SELL,
+            enable=["FD", "IF", "RH"],
+        )
+
+        option_order = parse_option_string(
+            self._manager.get_program_data("CURRENTLY_TRADING_OPTION")
+        )
+        if option_order:
+            logger.info(f"Currently Selling: {str(option_order)}")
+            self._perform_option_action(option_brokers, option_order, ActionType.SELL)
 
         logger.info("Done Selling...\n")
+        return schedule.CancelJob
 
     @staticmethod
-    def generate_report(*, version = 0):
+    def generate_report(*, version=0):
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
-        processor.optimized_generate_report(f"reports/original/report_02_02.csv")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
