@@ -1,8 +1,8 @@
-import pytest
 from utils.report.report import (
     ActionType,
     BrokerNames,
     OptionData,
+    OptionType,
     OrderType,
     ReportEntry,
     StockData,
@@ -10,6 +10,29 @@ from utils.report.report import (
 
 
 class TestReport:
+    def test_action_type(self):
+        assert ActionType.BUY.value == "Buy"
+        assert ActionType.SELL.value == "Sell"
+        assert ActionType.OPEN.value == "open"
+        assert ActionType.CLOSE.value == "close"
+
+    def test_option_type(self):
+        assert OptionType.CALL.value == "call"
+        assert OptionType.PUT.value == "put"
+    
+    def test_order_type(self):
+        assert OrderType.MARKET.value == "Market"
+        assert OrderType.LIMIT.value == "Limit"
+
+    def test_broker_names(self):
+        assert BrokerNames.TD.value == "TD"
+        assert BrokerNames.RH.value == "RH"
+        assert BrokerNames.ET.value == "ET"
+        assert BrokerNames.E2.value == "E2"
+        assert BrokerNames.SB.value == "SB"
+        assert BrokerNames.FD.value == "FD"
+        assert BrokerNames.IF.value == "IF"
+
     def test_init_stock_data(self):
         stock_data = StockData(1.2, 1.3, 10, 100)
         assert stock_data.ask == 1.2

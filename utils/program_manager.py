@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import sys
 from datetime import datetime
 import random
@@ -45,15 +46,15 @@ OPTION_REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broke
 
 # fmt: on
 class ProgramManager:
-    def __init__(self, *, enable_stdout=False):
+    def __init__(self, base_path: Path = BASE_PATH, *, enable_stdout: bool = False):
         self._enable_stdout = enable_stdout
 
-        self._program_info_path = BASE_PATH / "program_info.json"
+        self._program_info_path = base_path / "program_info.json"
         date = datetime.now().strftime("%m_%d")
-        self._log_path = BASE_PATH / f"logs/log_{date}.log"
-        self.report_file = BASE_PATH / f"reports/original/report_{date}.csv"
+        self._log_path = base_path / f"logs/log_{date}.log"
+        self.report_file = base_path / f"reports/original/report_{date}.csv"
         self.option_report_file = (
-            BASE_PATH / f"reports/original/option_report_{date}.csv"
+            base_path / f"reports/original/option_report_{date}.csv"
         )
 
         self._default_values = {
@@ -132,7 +133,7 @@ class ProgramManager:
         with open(self._program_info_path, "w") as file:
             json.dump(data, file, indent=4)
 
-    def get_program_data(self, key):
+    def get_program_data(self, key: str):
         self._check_valid_key(key)
         with open(self._program_info_path, "r") as file:
             return json.load(file)[key]

@@ -41,7 +41,7 @@ def calculate_num_stocks_to_buy(dollar_amt: float, stock_price: float):
     return max(1, round(dollar_amt / stock_price))
 
 
-def convert_to_float(string, default=""):
+def convert_to_float(string, default: Any = ""):
     return float(string) if string != "" else default
 
 
@@ -52,8 +52,9 @@ def process_option_input() -> list[OptionOrder]:
     temp = input("Enter option list to trade for today: ")
     parts = temp.split(",")
     orders: list[OptionOrder] = []
-    for part in parts:
-        orders.append(parse_option_string(part))  # type: ignore
+    if parts[0] != "":
+        for part in parts:
+            orders.append(parse_option_string(part))  # type: ignore
 
     return orders
 
