@@ -113,10 +113,10 @@ class Schwab(Broker):
 
     def buy(self, order: StockOrder):
         pre_stock_data = self._collect_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
         try:
             self._market_buy(order)
-            program_executed = datetime.now().strftime("%X:%f")
+            program_executed = self._get_current_time()
             post_stock_data = self._collect_stock_data(order.sym)
             self._save_report(
                 order.sym,
@@ -133,10 +133,10 @@ class Schwab(Broker):
 
     def sell(self, order: StockOrder):
         pre_stock_data = self._collect_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
         try:
             self._market_sell(order)
-            program_executed = datetime.now().strftime("%X:%f")
+            program_executed = self._get_current_time()
             post_stock_data = self._collect_stock_data(order.sym)
 
             self._save_report(
@@ -282,14 +282,14 @@ class Schwab(Broker):
 
     def buy_option(self, order: OptionOrder):
         pre_stock_data = self._get_option_data(order)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         if order.option_type == OptionType.CALL:
             self._buy_call_option(order)
         else:
             self._buy_put_option(order)
 
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = self._get_option_data(order)
 
         self._save_option_report(
@@ -303,14 +303,14 @@ class Schwab(Broker):
 
     def sell_option(self, order: OptionOrder):
         pre_stock_data = self._get_option_data(order)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         if order.option_type == OptionType.CALL:
             self._sell_call_option(order)
         else:
             self._sell_put_option(order)
 
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = self._get_option_data(order)
 
         self._save_option_report(

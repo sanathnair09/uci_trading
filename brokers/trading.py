@@ -63,13 +63,16 @@ class AutomatedTrading:
 
     def start(self):
         self._schedule()
-
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-            if len(schedule.get_jobs()) == 0:
-                logger.info("Finished trading")
-                break
+        try:
+            while True:
+                schedule.run_pending()
+                time.sleep(1)
+                if len(schedule.get_jobs()) == 0:
+                    logger.info("Finished trading")
+                    break
+        except:
+            for broker in self._brokers:
+                del broker
 
     def _pre_schedule_processing(self):
         # program is run on new day

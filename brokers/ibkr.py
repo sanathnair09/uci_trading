@@ -79,7 +79,7 @@ class IBKR(Broker):
 
     def buy(self, order: StockOrder):
         pre_stock_data = MarketData.get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         ### BUY ###
         if order.order_type == OrderType.MARKET:
@@ -87,7 +87,7 @@ class IBKR(Broker):
         else:
             self._limit_buy(order)
 
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = MarketData.get_stock_data(order.sym)
 
         self._save_report(
@@ -102,14 +102,14 @@ class IBKR(Broker):
 
     def sell(self, order: StockOrder):
         pre_stock_data = MarketData.get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         if order.order_type == OrderType.MARKET:
             self._market_sell(order)
         else:
             self._limit_sell(order)
 
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = MarketData.get_stock_data(order.sym)
 
         self._save_report(

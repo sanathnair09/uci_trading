@@ -13,5 +13,5 @@ if __name__ == "__main__":
     trader.start()
     # trader.sell_leftover_positions()
     # trader.manual_override([
-    # ], ActionType.SELL)
+    # ], ActionType.CLOSE)
     # AutomatedTrading.generate_report()

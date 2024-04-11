@@ -23,13 +23,14 @@ class OrderType(Enum):
 
 
 class BrokerNames(Enum):
-    TD = "TD"
-    RH = "RH"
-    ET = "ET"
-    E2 = "E2"
-    SB = "SB"
-    FD = "FD"
+    TD = "TD" # TD Ameritrade
+    RH = "RH" # Robinhood
+    ET = "ET" # ETrade
+    E2 = "E2" # ETrade
+    SB = "SB" # Schwab
+    FD = "FD" # Fidelity
     IF = "IF"  # IBKR free
+    VD = "VD" # Vanguard
 
 
 @dataclass

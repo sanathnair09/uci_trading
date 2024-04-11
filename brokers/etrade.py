@@ -239,13 +239,13 @@ class ETrade(Broker):
 
     def buy(self, order: StockOrder):
         pre_stock_data = self._get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         ### BUY ###
         orderID = self._market_buy(order)
 
         ### POST BUY INFO ###
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = self._get_stock_data(order.sym)
 
         self._save_report(
@@ -260,13 +260,13 @@ class ETrade(Broker):
 
     def sell(self, order: StockOrder):
         pre_stock_data = self._get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         ### SELL ###
         orderID = self._market_sell(order)
 
         ### POST SELL INFO ###
-        program_executed = datetime.now().strftime("%X:%f")
+        program_executed = self._get_current_time()
         post_stock_data = self._get_stock_data(order.sym)
 
         self._save_report(

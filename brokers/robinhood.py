@@ -39,7 +39,7 @@ class Robinhood(Broker):
 
     def buy(self, order: StockOrder):
         pre_stock_data = self._get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         res = self._market_buy(order)
         if "id" in res:
@@ -64,7 +64,7 @@ class Robinhood(Broker):
 
     def sell(self, order: StockOrder):
         pre_stock_data = self._get_stock_data(order.sym)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         res = self._market_sell(order)
 
@@ -90,14 +90,14 @@ class Robinhood(Broker):
 
     def buy_option(self, order: OptionOrder):
         pre_stock_data = self._get_option_data(order)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         if order.option_type == OptionType.CALL:
             res = self._buy_call_option(order)
         else:
             res = self._buy_put_option(order)
 
-        program_executed = datetime.now().strftime("%X:%f")  # when order went through
+        program_executed = self._get_current_time()  # when order went through
         post_stock_data = self._get_option_data(order)
 
         self._save_option_report(
@@ -113,13 +113,13 @@ class Robinhood(Broker):
 
     def sell_option(self, order: OptionOrder):
         pre_stock_data = self._get_option_data(order)
-        program_submitted = datetime.now().strftime("%X:%f")
+        program_submitted = self._get_current_time()
 
         if order.option_type == OptionType.CALL:
             res = self._sell_call_option(order)
         else:
             res = self._sell_put_option(order)
-        program_executed = datetime.now().strftime("%X:%f")  # when order went through
+        program_executed = self._get_current_time()  # when order went through
         post_stock_data = self._get_option_data(order)
 
         self._save_option_report(
@@ -435,12 +435,5 @@ class Robinhood(Broker):
 
 if __name__ == "__main__":
     r = Robinhood(Path("temp.csv"), BrokerNames.RH, Path("temp_option.csv"))
-    # r.login()
-    print(
-        r._handle_option_tick_size(
-            ActionType.OPEN,
-            OptionOrder("AAPL", OrderType.MARKET, OptionType.CALL, 1, ""),
-            1.63,
-        )
-    )
+    r.login()
     pass

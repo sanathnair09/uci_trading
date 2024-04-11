@@ -98,23 +98,23 @@ class Broker(ABC):
 
         self._error_count = 0
 
-    def _get_current_time(self):
+    def _get_current_time(self) -> str:
         return datetime.now().strftime("%X:%f")
 
-    def _add_report_to_file(self, report_entry: ReportEntry):
+    def _add_report_to_file(self, report_entry: ReportEntry) -> None:
         self._executed_trades.append(report_entry)
 
-    def _add_option_report_to_file(self, option_report_entry: OptionReportEntry):
+    def _add_option_report_to_file(self, option_report_entry: OptionReportEntry) -> None:
         self._executed_option_trades.append(option_report_entry)
 
-    def _save_report_to_file(self):
+    def _save_report_to_file(self) -> None:
         with self._report_file.open("a") as file:
             for report in self._executed_trades:
                 file.write(str(report))
 
         self._executed_trades.clear()
 
-    def _save_option_report_to_file(self):
+    def _save_option_report_to_file(self) -> None:
         if self._option_report_file:
             with self._option_report_file.open("a") as file:
                 for report in self._executed_option_trades:
@@ -122,27 +122,27 @@ class Broker(ABC):
 
         self._executed_option_trades.clear()
 
-    def name(self):
+    def name(self) -> str:
         return self._broker_name.value if self._broker_name else self.__class__.__name__
 
     @abstractmethod
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> None:
         pass
 
     @abstractmethod
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> None:
         pass
 
     @abstractmethod
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> None:
         pass
 
     @abstractmethod
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> None:
         pass
 
     @abstractmethod
-    def login(self):
+    def login(self) -> None:
         pass
 
     @abstractmethod

@@ -60,16 +60,6 @@ class CustomChromeInstance:
         # print(self._driver.service.path)
         # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})") 
 
-    def __del__(self):
-        if self._driver:
-            try:
-                self._driver.quit()
-            except Exception as e:
-                logger.error(f"Error quitting selenium")
-                # print(e)
-        else:
-            logger.info(f"Web driver not initialized {self._driver}")
-
     def open(self, page: str):
         self._driver.get(page)
 
@@ -124,4 +114,5 @@ class CustomChromeInstance:
 
 
 if __name__ == '__main__':
-    pass
+    c = CustomChromeInstance()
+    c.open("https://www.google.com")
