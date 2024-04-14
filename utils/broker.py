@@ -50,8 +50,8 @@ NULL_ENTRY = pd.Series(
 class StockOrder:
     sym: str
     quantity: float
-    price: float
-    order_type: OrderType
+    price: float = 0.0
+    order_type: OrderType = OrderType.MARKET
 
     def __str__(self) -> str:
         return f"{self.sym},{self.quantity},{self.price},{self.order_type}"
@@ -60,13 +60,13 @@ class StockOrder:
 @dataclass
 class OptionOrder:
     sym: str
-    order_type: OrderType
     option_type: OptionType
     strike: str
     expiration: str
+    order_type: OrderType = OrderType.MARKET
 
     def formatted_expiration(self) -> str:
-        return datetime.strptime(self.expiration, '%Y-%m-%d').strftime('%m/%d/%Y')
+        return datetime.strptime(self.expiration, "%Y-%m-%d").strftime("%m/%d/%Y")
 
     def __str__(self) -> str:
         """
@@ -85,8 +85,8 @@ class Broker(ABC):
         option_report_file: Optional[Path] = None,
     ):
         self._broker_name = broker_name
-        self._executed_trades = []
-        self._executed_option_trades = []
+        self._executed_trades: list[ReportEntry] = []
+        self._executed_option_trades: list[OptionReportEntry] = []
 
         if not isinstance(report_file, Path):
             report_file = Path(report_file)
@@ -104,7 +104,9 @@ class Broker(ABC):
     def _add_report_to_file(self, report_entry: ReportEntry) -> None:
         self._executed_trades.append(report_entry)
 
-    def _add_option_report_to_file(self, option_report_entry: OptionReportEntry) -> None:
+    def _add_option_report_to_file(
+        self, option_report_entry: OptionReportEntry
+    ) -> None:
         self._executed_option_trades.append(option_report_entry)
 
     def _save_report_to_file(self) -> None:
@@ -186,7 +188,7 @@ class Broker(ABC):
         pass
 
     @abstractmethod
-    def get_current_positions(self) -> list[StockOrder]:
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         pass
 
     @abstractmethod
@@ -194,11 +196,11 @@ class Broker(ABC):
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs,
+        **kwargs: dict[str, str]
     ):
         pass
 
@@ -207,10 +209,10 @@ class Broker(ABC):
         self,
         order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs,
+        **kwargs: dict[str, str],
     ):
         pass

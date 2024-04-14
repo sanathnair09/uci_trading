@@ -426,10 +426,10 @@ class Robinhood(Broker):
         )
 
     def get_current_positions(self):
-        current_positions = []
+        current_positions: list[StockOrder] = []
         positions = rh.account.build_holdings()
         for sym in positions:
-            current_positions.append((sym, float(positions[sym]["quantity"])))
+            current_positions.append(StockOrder(sym, float(positions[sym]["quantity"])))
         return current_positions, []
 
 

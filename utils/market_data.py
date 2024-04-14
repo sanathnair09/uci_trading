@@ -1,6 +1,6 @@
 from datetime import datetime
 
-import tda.auth
+import tda.auth # type: ignore[import-untyped]
 from loguru import logger
 
 from brokers import TD_KEY, TD_TOKEN_PATH
@@ -21,7 +21,7 @@ class MarketData:
     """
 
     @staticmethod
-    def validate_stock(sym: str):
+    def validate_stock(sym: str) -> bool:
         """
         checks if symbol is valid
         """

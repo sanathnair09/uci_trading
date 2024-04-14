@@ -525,9 +525,9 @@ class Fidelity(Broker):
 
         self._save_option_report_to_file()
 
-    def get_current_positions(self):
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         """
-        used to automtically sell left over positions
+        used to automatically sell left over positions
         :return: list of (symbol, amount)
         """
         self._chrome_inst.open(
@@ -549,7 +549,8 @@ class Fidelity(Broker):
         df = pd.read_csv(file)
         df = df.drop(df.index[[0, -1, -2, -3, -4]])  # only keep rows with stock info
         positions = [
-            (sym, quantity) for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()
+            StockOrder(sym, quantity)
+            for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()
         ]
         self._chrome_inst.open(
             "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
@@ -709,11 +710,6 @@ class Fidelity(Broker):
                 / f'data/fidelity/fd_splits_{datetime.now().strftime("%m_%d")}.csv',
                 index=False,
             )
-
-    def resolve_errors(self):
-        if self._error_count > 0:
-            self._chrome_inst.refresh()
-            self._error_count = 0
 
 
 if __name__ == "__main__":

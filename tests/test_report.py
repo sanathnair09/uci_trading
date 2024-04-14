@@ -32,6 +32,7 @@ class TestReport:
         assert BrokerNames.SB.value == "SB"
         assert BrokerNames.FD.value == "FD"
         assert BrokerNames.IF.value == "IF"
+        assert BrokerNames.VD.value == "VD"
 
     def test_init_stock_data(self):
         stock_data = StockData(1.2, 1.3, 10, 100)

@@ -40,7 +40,7 @@ class StockData:
     quote: float
     volume: float
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.ask},{self.bid},{self.quote},{self.volume}"
 
 
@@ -55,7 +55,7 @@ class OptionData(StockData):
     underlying_price: float
     in_the_money: bool
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.ask},{self.bid},{self.quote},{self.volume},{self.volatility},{self.delta},{self.theta},{self.gamma},{self.vega},{self.rho},{self.underlying_price},{self.in_the_money}"
 
 
@@ -82,7 +82,7 @@ class ReportEntry:
     activity_id: str
     broker: BrokerNames
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.quantity},{self.price},{(self.dollar_amt)},{format_quote_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.split},{self.order_id},{self.activity_id}\n"
 
 
@@ -92,7 +92,7 @@ class OptionReportEntry:
     program_executed: str  # time after placing order
     broker_executed: str  # time executed according to broker info
     sym: str  # symbol
-    strike: float
+    strike: Union[float, str]
     option_type: OptionType  # Call or Put
     expiration: str
     action: ActionType  # Buy or Sell
@@ -105,15 +105,15 @@ class OptionReportEntry:
     activity_id: str
     broker: BrokerNames
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
 
 
-def format_quote_data(pre: StockData, post: StockData):
+def format_quote_data(pre: StockData, post: StockData) -> str:
     return f"{pre.quote},{post.quote},{pre.bid},{pre.ask},{post.bid},{post.ask},{pre.volume},{post.volume}"
 
 
-def format_option_data(pre: OptionData, post: OptionData):
+def format_option_data(pre: OptionData, post: OptionData) -> str:
     return f"{pre.quote},{post.quote},{pre.bid},{pre.ask},{post.bid},{post.ask},{pre.volume},{post.volume},{pre.volatility},{post.volatility},{pre.delta},{post.delta},{pre.theta},{post.theta},{pre.gamma},{post.gamma},{pre.vega},{post.vega},{pre.rho},{post.rho},{pre.underlying_price},{post.underlying_price},{pre.in_the_money},{post.in_the_money}"
 
 

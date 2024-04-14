@@ -48,7 +48,7 @@ class Schwab(Broker):
                 program_executed,
                 "",
                 sym,
-                ActionType.BUY,
+                action_type,
                 kwargs["quantity"],
                 "",
                 "",
@@ -128,7 +128,7 @@ class Schwab(Broker):
                 quantity=order.quantity,
             )
         except NoSuchElementException as e:
-            if "sellAllHandle" in e.msg: # type: ignore
+            if "sellAllHandle" in e.msg:  # type: ignore
                 logger.error(f"Schwab - Error buying {order.quantity} {order.sym}")
 
     def sell(self, order: StockOrder):
@@ -149,7 +149,7 @@ class Schwab(Broker):
                 quantity=order.quantity,
             )
         except NoSuchElementException as e:
-            if "sellAllHandle" in e.msg: # type: ignore
+            if "sellAllHandle" in e.msg:  # type: ignore
                 logger.error(f"Schwab - Error selling {order.quantity} {order.sym}")
 
     def _collect_stock_data(self, sym: str):
@@ -265,15 +265,15 @@ class Schwab(Broker):
         :return: list of (symbol, amount)
         """
         self._chrome_inst.open("https://client.schwab.com/app/accounts/positions/#/")
-        positions = []
+        positions: list[StockOrder] = []
         try:
             time.sleep(5)
             page_source = self._chrome_inst.get_page_source()
             df = pd.read_html(StringIO(page_source))
             df = df[0]
             df = df[["Symbol", "Quantity"]].drop(df.index[[-1, -2]])
-            positions = df.to_numpy()
-            positions = [(x[0], float(x[1])) for x in positions]
+            temp = df.to_numpy()
+            positions = [StockOrder(x[0], float(x[1])) for x in temp]
         except Exception as e:
             print("Error getting current positions", e)
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")

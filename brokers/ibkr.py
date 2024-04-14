@@ -332,25 +332,20 @@ class IBKR(Broker):
     def _sell_put_option(self, order: OptionOrder):
         return NotImplementedError
 
-    def resolve_errors(self):
-        if self._error_count > 0:
-            self._chrome_inst.refresh()
-            self._error_count = 0
-
-    def get_current_positions(self) -> list[tuple[str, float]]:
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         self._chrome_inst.open(
             "https://portal.interactivebrokers.com/portal/?action=ACCT_MGMT_MAIN&loginType=1&clt=0#/portfolio"
         )
         time.sleep(5)
-        positions = []
+        positions: list[StockOrder] = []
         try:
             page_source = self._chrome_inst.get_page_source()
             df = pd.read_html(StringIO(page_source))
             df = df[0]
-            positions = df[["Instrument", "Position"]].to_numpy()
+            temp = df[["Instrument", "Position"]].to_numpy()
             positions = [
-                (sym if "●" not in sym else sym[1:], float(amount))
-                for sym, amount in positions
+                StockOrder(sym if "●" not in sym else sym[1:], float(amount))
+                for sym, amount in temp
             ]
         except Exception as e:
             print(e)

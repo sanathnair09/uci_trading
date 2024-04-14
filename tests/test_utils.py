@@ -19,9 +19,8 @@ class TestUtils:
     def test_convert_to_float(self):
         assert convert_to_float("100") == 100.0
         assert convert_to_float("100.0") == 100.0
-        assert convert_to_float("100.0", 0) == 100.0
-        assert convert_to_float("", 0) == 0
-        assert convert_to_float("") == ""
+        assert convert_to_float("100.0") == 100.0
+        assert convert_to_float("") == None
 
     def test_parse_call_option_string_nondecimal_strike(self):
         option = "AAPL-Call-100-01/01/2022"

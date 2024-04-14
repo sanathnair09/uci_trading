@@ -1,4 +1,6 @@
+from datetime import datetime
 import time
+from typing import Optional, Sequence, cast
 import warnings
 from pathlib import Path
 
@@ -10,7 +12,7 @@ import pandas as pd
 from loguru import logger
 
 from brokers import ETrade, BASE_PATH, Robinhood
-from utils.broker import NULL_ENTRY
+from utils.broker import NULL_ENTRY, Broker
 from utils.report.report import BrokerNames
 from utils.report.report_utils import (
     get_robinhood_option_data,
@@ -29,35 +31,32 @@ from utils.report.report_utils import (
 )
 
 
-def check_file_existence(file_path):
-    path = Path(file_path)
-    return path.exists() and path.is_file()
+def check_file_existence(file_path: Path) -> bool:
+    return file_path.exists() and file_path.is_file()
 
 
 class PostProcessing:
-    def __init__(self, output_file_version=0):
+    def __init__(self, output_file_version: int = 0) -> None:
         self._output_file_version = (
             "" if output_file_version == 0 else output_file_version
         )
 
-        self._brokers = {}
+        self._brokers: dict[str, Broker] = {}
 
         self._login()
 
-    def _login(self):
+    def _login(self) -> None:
         # rh_acc = input("Which RH account do you want to login to? (RH/RH2): ")
         Robinhood.login_custom(account="RH2")
         self._brokers = {
-            # 'ET': ETrade('', BrokerNames.ET),
             "E2": ETrade("", BrokerNames.E2),
-            # 'FD': Fidelity('', BrokerNames.FD)
         }
         for broker in self._brokers.values():
             broker.login()
 
         logger.info("Finished logging in...")
 
-    def _get_etrade_data(self, df, option=False):
+    def _get_etrade_data(self, df: pd.DataFrame, option: bool = False) -> pd.DataFrame:
         """
         gets etrade data and merges into the original df
         :param df: original df
@@ -70,15 +69,18 @@ class PostProcessing:
         for _, row in ets.iterrows():
             orderId = row["Order ID"]
             broker = row["Broker"]
+            et: ETrade = cast(
+                ETrade, self._brokers[broker]
+            )  # needed for type hinting (has no runtime effect)
             if not option:
-                trade_df, is_split = self._brokers[broker].get_order_data(
+                trade_df, is_split = et.get_order_data(
                     orderId=orderId, sym=row["Symbol"], date=row["Date"]
                 )
             else:
-                trade_df, is_split = self._brokers[broker].get_order_option_data(
+                trade_df, is_split = et.get_order_option_data(
                     orderId=orderId, sym=row["Symbol"], date=row["Date"]
                 )
-            for idx, split in trade_df.iterrows():
+            for _, split in trade_df.iterrows():
                 row["Broker Executed"] = convert_int64_utc_to_pst(
                     split["Broker Executed"]
                 )
@@ -90,14 +92,13 @@ class PostProcessing:
         df = pd.concat([df, new_ets], ignore_index=False)
         return df
 
-    def _get_broker_data(self, date):
+    def _get_broker_data(self, date: datetime) -> Sequence[Optional[pd.DataFrame]]:
 
         # ibkr_file = BASE_PATH / f"data/ibkr/DailyTradeReport.{date.strftime('%Y%m%d')}.html"
         ibkr_file = BASE_PATH / f"data/ibkr/ibkr_{date.strftime('%m_%d')}.csv"
         fidelity_file = (
             BASE_PATH / f"data/fidelity/fd_splits_{date.strftime('%m_%d')}.csv"
         )
-
         # schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.json"
         schwab_file = BASE_PATH / f"data/schwab/schwab_{date.strftime('%m_%d')}.csv"
 
@@ -117,7 +118,7 @@ class PostProcessing:
 
         return ibkr_df, fidelity_df, schwab_df
 
-    def optimized_generate_report(self, report_file):
+    def optimized_generate_report(self, report_file: str) -> None:
         logger.info(f"Processing: {report_file}")
         print("---START---")
         start = time.perf_counter()
@@ -127,10 +128,9 @@ class PostProcessing:
 
         df = pd.read_csv(report_file)
 
-        def parse_broker_data(row, broker):
+        def parse_broker_data(row: pd.Series, broker: str) -> pd.Series:
             symbol = row["Symbol"]
             action = row["Action"]
-
             if broker == "IF":
                 hour = row["Broker Executed"][:2]
                 report_row = df[
@@ -157,7 +157,7 @@ class PostProcessing:
                 report_row["Size"] = row["Size"]
                 report_row["Price"] = row["Price"]
                 report_row["Dollar Amt"] = row["Dollar Amt"]
-                return report_row.squeeze()
+                return cast(pd.Series, report_row.squeeze())
             return NULL_ENTRY
 
         if isinstance(ibkr_df, pd.DataFrame):
@@ -206,7 +206,7 @@ class PostProcessing:
 
         # calculate misc
 
-        price_idx = df.columns.get_loc("Price")
+        price_idx = cast(int, df.columns.get_loc("Price"))
         df.insert(price_idx + 1, "Rounded Price - Price", "")
         df["Rounded Price - Price"] = vectorized_calculate_rounded_price(
             df["Price"].to_numpy(dtype="float64")
@@ -252,7 +252,7 @@ class PostProcessing:
             df["Rounded Price - Price"].notna(), "Rounded Price - Price"
         ].apply(optimized_calculate_bjzz)
 
-        post_vol_idx = df.columns.get_loc("Post Volume")
+        post_vol_idx = cast(int, df.columns.get_loc("Post Volume"))
         df.insert(post_vol_idx + 1, "First", 0)
         df.insert(post_vol_idx + 2, "BigTrade", 0)
         df.loc[(df["Size"] == 100) & (df["Broker"] == "FD"), ["BigTrade"]] = 1
@@ -266,7 +266,7 @@ class PostProcessing:
             + np.where(df["BigTrade"].to_numpy(dtype="int64") == 0, "0100", "100")
         )
 
-        split_idx = df.columns.get_loc("Split")
+        split_idx = cast(int, df.columns.get_loc("Split"))
         df.insert(split_idx + 1, "BidAskSpread", "")
         df.insert(split_idx + 2, "TradeLocation", "")
 
@@ -299,21 +299,20 @@ class PostProcessing:
 
         logger.info(f"Number of Trades: {len(df['Symbol'].unique())}\n")
 
-    def _format_df_dates(self, df):
-        program_submitted_idx = df.columns.get_loc("Program Submitted")
+    def _format_df_dates(self, df: pd.DataFrame) -> pd.DataFrame:
+        program_submitted_idx = cast(int, df.columns.get_loc("Program Submitted"))
         df.insert(program_submitted_idx + 1, "Program Submitted Text", "")
-        program_executed_idx = df.columns.get_loc("Program Executed")
+
+        program_executed_idx = cast(int, df.columns.get_loc("Program Executed"))
         df.insert(program_executed_idx + 1, "Program Executed Text", "")
-        broker_executed_idx = df.columns.get_loc("Broker Executed")
+
+        broker_executed_idx = cast(int, df.columns.get_loc("Broker Executed"))
         df.insert(broker_executed_idx + 1, "Broker Executed Text", "")
+
         df["Program Submitted Text"] = df["Program Submitted"].dt.strftime("%X %p")
         df["Program Executed Text"] = df["Program Executed"].dt.strftime("%X %p")
         df["Broker Executed Text"] = df["Broker Executed"].dt.strftime("%X %p")
-        # type casting and rounding
-        # df = df.astype({
-        #     "Size": int,
-        #     "Split": int,
-        # })
+
         df["Date"] = df["Date"].dt.strftime("%m/%d/%Y")
         df["Program Submitted"] = df["Program Submitted"].dt.strftime("%X:%f")
         df["Program Executed"] = df["Program Executed"].dt.strftime("%X:%f")
@@ -322,7 +321,7 @@ class PostProcessing:
 
         return df
 
-    def generate_option_report(self, report_file):
+    def generate_option_report(self, report_file: str) -> None:
         logger.info(f"Processing: {report_file}")
         print("---START---")
         start = time.perf_counter()
@@ -342,7 +341,7 @@ class PostProcessing:
 
         fd_options = pd.DataFrame()
 
-        def parse_fidelity_data(row):
+        def parse_fidelity_option_data(row: pd.Series) -> None:
             if pd.isna(row["Strike"]):
                 return
             nonlocal fd_options
@@ -357,17 +356,19 @@ class PostProcessing:
 
             if report_row.shape[0]:
                 if report_row.shape[0] > 1:
-                    report_row = report_row[report_row["Program Submitted"].str.slice(0,2) == row["Broker Executed"][0:2]]
+                    report_row = report_row[
+                        report_row["Program Submitted"].str.slice(0, 2)
+                        == row["Broker Executed"][0:2]
+                    ]
                 report_row["Broker Executed"] = row["Broker Executed"]
                 report_row["Size"] = row["Size"]
                 report_row["Price"] = row["Price"]
                 report_row["Dollar Amt"] = row["Dollar Amt"]
-                fd_options = pd.concat(
-                    [fd_options, report_row], ignore_index=True
-                )
+                fd_options = pd.concat([fd_options, report_row], ignore_index=True)
 
         logger.info("Processing FD")
-        fidelity_df.apply(parse_fidelity_data, axis=1)
+        for _, row in fidelity_df.iterrows():
+            parse_fidelity_option_data(row)
         df = df.drop((df[df["Broker"] == "FD"]).index)
         df = pd.concat([df, fd_options], ignore_index=True)
         logger.info("Done FD")
@@ -404,7 +405,4 @@ class PostProcessing:
 
 
 if __name__ == "__main__":
-    processor = PostProcessing()
-    processor.generate_option_report(
-        BASE_PATH / "reports/original/option_report_04_09.csv"
-    )
+    pass

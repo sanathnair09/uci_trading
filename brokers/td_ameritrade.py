@@ -291,8 +291,8 @@ class TDAmeritrade(Broker):
         positions = self._client.get_account(
             TD_ACC_NUM, fields=[tda.client.Client.Account.Fields.POSITIONS]
         ).json()["securitiesAccount"]["positions"]
-        current_positions = []
-        current_option_positions = []
+        current_positions: list[StockOrder] = []
+        current_option_positions: list[OptionOrder] = []
         for position in positions:
             if position["instrument"]["assetType"] == "OPTION":
                 symbol, month, date, year, strike, option_type = position["instrument"][
@@ -304,15 +304,17 @@ class TDAmeritrade(Broker):
                 current_option_positions.append(
                     OptionOrder(
                         symbol,
-                        OrderType.MARKET,
                         option_type,
-                        float(strike),
+                        strike,
                         f"{year}-{datetime.strptime(month,'%b').strftime('%m')}-{date}",
                     )
                 )
             else:
                 current_positions.append(
-                    (position["instrument"]["symbol"], position["longQuantity"])
+                    StockOrder(
+                        sym=position["instrument"]["symbol"],
+                        quantity=position["longQuantity"],
+                    )
                 )
 
         return current_positions, current_option_positions
@@ -325,5 +327,4 @@ class TDAmeritrade(Broker):
 if __name__ == "__main__":
     td = TDAmeritrade(Path("temp.csv"), BrokerNames.TD, Path("temp_option.csv"))
     td.login()
-    # print(td.get_current_positions())
     pass

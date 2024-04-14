@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 from datetime import datetime
 import random
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -73,7 +73,7 @@ class ProgramManager:
         self._initialize_files()
         self._init_logging()
 
-    def _initialize_files(self):
+    def _initialize_files(self) -> None:
         if not self._program_info_path.exists():
             print("Creating program file...")
             with open(self._program_info_path, "w+") as file:
@@ -90,17 +90,17 @@ class ProgramManager:
                     json.dump(new_data, file, indent=4)
                     print("Finished updating program file...")
 
-        def create_file(file, report_columns, msg: str):
+        def create_file(file: Path, report_columns: list[str], msg: str) -> None:
             if not file.exists():
                 print(f"Creating {msg} file...")
-                with open(file, "w") as file:
-                    file.write(",".join(report_columns) + "\n")
+                with open(file, "w") as f:
+                    f.write(",".join(report_columns) + "\n")
                     print(f"Finished creating {msg} file...")
 
         create_file(self.report_file, REPORT_COLUMNS, "report")
         create_file(self.option_report_file, OPTION_REPORT_COLUMNS, "option report")
 
-    def _init_logging(self):
+    def _init_logging(self) -> None:
         logger.remove()
         sep = "<r>|</r>"
         time = "<g>{time:hh:mm:ss}</g>"
@@ -118,13 +118,13 @@ class ProgramManager:
             enqueue=True,
         )
 
-    def _check_valid_key(self, key):
+    def _check_valid_key(self, key: str) -> None:
         if key not in self._default_values:
             raise KeyError(
                 f"{key} not a valid key: {list(self._default_values.keys())}"
             )
 
-    def update_program_data(self, key: str, value: Any):
+    def update_program_data(self, key: str, value: Union[str, list, int]) -> None:
         self._check_valid_key(key)
         with open(self._program_info_path, "r") as file:
             data = json.load(file)
@@ -133,7 +133,7 @@ class ProgramManager:
         with open(self._program_info_path, "w") as file:
             json.dump(data, file, indent=4)
 
-    def get_program_data(self, key: str):
+    def get_program_data(self, key: str) -> Any:
         self._check_valid_key(key)
         with open(self._program_info_path, "r") as file:
             return json.load(file)[key]

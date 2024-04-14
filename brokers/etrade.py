@@ -488,8 +488,8 @@ class ETrade(Broker):
         self._save_option_report_to_file()
 
     def get_current_positions(self):
-        current_positions = []
-        current_options_positions = []
+        current_positions: list[StockOrder] = []
+        current_options_positions: list[OptionOrder] = []
         # try catch for when nothing left
         try:
             positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"]["AccountPortfolio"]["Position"]  # type: ignore
@@ -497,7 +497,10 @@ class ETrade(Broker):
                 for position in positions:
                     if position["Product"]["securityType"] == "EQ":
                         current_positions.append(
-                            (position["symbolDescription"], position["quantity"])
+                            StockOrder(
+                                position["symbolDescription"],
+                                position["quantity"],
+                            )
                         )
                     else:
                         option_type = (
@@ -510,7 +513,6 @@ class ETrade(Broker):
                         current_options_positions.append(
                             OptionOrder(
                                 position["Product"]["symbol"],
-                                OrderType.MARKET,
                                 option_type,
                                 strike,
                                 expiration,
@@ -520,7 +522,10 @@ class ETrade(Broker):
             else:
                 if positions["Product"]["securityType"] == "EQ":
                     current_positions.append(
-                        (positions["symbolDescription"], positions["quantity"])
+                        StockOrder(
+                            positions["symbolDescription"],
+                            positions["quantity"],
+                        )
                     )
                 else:
                     option_type = (
@@ -536,7 +541,6 @@ class ETrade(Broker):
                     current_options_positions.append(
                         OptionOrder(
                             positions["Product"]["symbol"],
-                            OrderType.MARKET,
                             option_type,
                             strike,
                             expiration,

@@ -2,7 +2,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from pyexpat import ExpatError
-from typing import Optional
+from typing import Optional, Union
 
 import schedule
 from loguru import logger
@@ -146,38 +146,43 @@ class AutomatedTrading:
 
         logger.info("Done scheduling")
 
-    def manual_override(self, stock_list, action: ActionType = ActionType.SELL):
+    def manual_override(
+        self,
+        stock_list: Union[list[StockOrder], list[OptionOrder]],
+        action: ActionType = ActionType.SELL,
+    ):
         """
         in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks
-        :param action:
         :param stock_list: list of tuple (stock, amount)
+        :param action:
         """
-        # needed to fix stock list for method
+        if len(stock_list) == 0:
+            logger.error("No stocks to sell")
+            return
+
         if action == ActionType.CLOSE:
             option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
             for option in stock_list:
+                if not isinstance(option, OptionOrder):
+                    logger.error("Invalid option order")
+                    return
                 self._perform_option_action(
                     option_brokers, option, action, main_program=False
                 )
-        else:
-            stock_list = [
-                StockOrder(x[0], x[1], 0, OrderType.MARKET) for x in stock_list
-            ]
+        elif action == ActionType.SELL:
             brokers = self._choose_brokers([])
-            self._perform_action(brokers, stock_list, action, main_program=False)
+            stock_orders = [
+                order for order in stock_list if isinstance(order, StockOrder)
+            ]
+            self._perform_action(brokers, stock_orders, action, main_program=False)
 
     def sell_leftover_positions(self):
         for broker in self._brokers:
             try:
                 positions, option_position = broker.get_current_positions()
-                leftover = [
-                    StockOrder(sym, float(quantity), 0, OrderType.MARKET)
-                    for sym, quantity in positions
-                    if sym in SYM_LIST
-                ]
-                print(broker.name(), str(leftover), str(option_position))
+                print(broker.name(), str(positions), str(option_position))
 
-                for order in leftover:
+                for order in positions:
                     broker.sell(order)
 
                 for order in option_position:
@@ -369,6 +374,13 @@ class AutomatedTrading:
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
+        processor.optimized_generate_report(f"reports/original/report_04_03.csv")
+
+    @staticmethod
+    def generate_option_report(*, version=0):
+        processor = PostProcessing(version)
+        # processor.generate_option_report(f"reports/original/option_report_xx_xx.csv")
+
 
 
 if __name__ == "__main__":

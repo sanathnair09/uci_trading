@@ -1,10 +1,10 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, cast
 
 import numpy as np
 import pandas as pd
-import robin_stocks.robinhood as rh
+import robin_stocks.robinhood as rh  # type: ignore[import-untyped]
 from pytz import utc, timezone
 
 from utils.report.report import ActionType
@@ -36,7 +36,7 @@ COLUMN_ORDER = [
 ]
 
 
-def convert_int64_utc_to_pst(int64):
+def convert_int64_utc_to_pst(int64: int) -> Union[str, int]:
     try:
         utc_datetime = datetime.utcfromtimestamp(float(int64) / 1000)
         now_aware = utc.localize(utc_datetime)
@@ -46,7 +46,7 @@ def convert_int64_utc_to_pst(int64):
         return int64
 
 
-def get_robinhood_data(row):
+def get_robinhood_data(row: pd.Series) -> pd.Series:
     order_data: Any = rh.get_stock_order_info(row["Order ID"])
     if order_data["state"] == "cancelled":
         row[:] = None
@@ -71,7 +71,7 @@ def get_robinhood_data(row):
     return row
 
 
-def get_robinhood_option_data(row):
+def get_robinhood_option_data(row: pd.Series) -> pd.Series:
     order_data: Any = rh.get_option_order_info(row["Order ID"])
     if order_data["state"] == "cancelled":
         row[:] = None
@@ -96,11 +96,11 @@ def get_robinhood_option_data(row):
     return row
 
 
-def vectorized_calculate_rounded_price(price_array):
-    return np.round(np.round(price_array, 2) - price_array, 4)
+def vectorized_calculate_rounded_price(price_array: np.ndarray) -> np.ndarray:
+    return cast(np.ndarray, np.round(np.round(price_array, 2) - price_array, 4))
 
 
-def optimized_calculate_price_improvement(row):
+def optimized_calculate_price_improvement(row: pd.Series) -> int:
     action = row["Action"]
     if action == ActionType.BUY.value:
         # price lower than sellers min
@@ -110,19 +110,21 @@ def optimized_calculate_price_improvement(row):
         return 1 if row["Price"] > row["Pre Bid"] else 0
 
 
-def optimized_calculate_subpenny_and_fractionalpino5(rounded_price):
+def optimized_calculate_subpenny_and_fractionalpino5(
+    rounded_price: pd.Series,
+) -> pd.Series:
     # fractional -> =IF(OR(M5=0,ABS(ROUND(M5,4))=0.005),0,1)
     subpenny = 1 if rounded_price != 0 else 0
     fractionalpino5 = 0 if abs(rounded_price) == 0.005 else 1
     return pd.Series([subpenny, fractionalpino5], index=["Subpenny", "FractionalPIno5"])
 
 
-def optimized_calculate_BJZZ_flag(rounded_price):
+def optimized_calculate_BJZZ_flag(rounded_price: pd.Series) -> int:
     # =IF(AND(ABS(M2)<0.004,ABS(M2)>0),1,0)
     return 1 if 0 < abs(rounded_price) < 0.004 else 0
 
 
-def optimized_calculate_correct_and_wrong(row):
+def optimized_calculate_correct_and_wrong(row: pd.Series) -> pd.Series:
     # correct: =IF(OR(AND(J5=1,M5>0,M5<0.004),AND(J5=-1,M5>-0.004,M5<0)),1,0)
     # wrong: =IF(Q2=1,IF(R2=1,0,1),0) , Q2 = BJZZ Flag
     rounded_price = row["Rounded Price - Price"]
@@ -138,7 +140,7 @@ def optimized_calculate_correct_and_wrong(row):
     return pd.Series([correct, wrong], index=["Correct", "Wrong"])
 
 
-def optimized_calculate_categories(row):
+def optimized_calculate_categories(row: pd.Series) -> int:
     # =IF(AND(P6=1,R6=0),IF(AND(ABS(M6)<=0.005,ABS(M6)>0.004),3,2),IF(R6=1,4,IF(P6=0,1)))
     # P6 = fractional, R6 = correct, m6 = rounded_price
     rounded_price = row["Rounded Price - Price"]
@@ -150,7 +152,7 @@ def optimized_calculate_categories(row):
         return 4 if fractional_pino5 == 1 else 1
 
 
-def optimized_calculate_bjzz(rounded_price):
+def optimized_calculate_bjzz(rounded_price: pd.Series) -> int:
     # =IF(AND(M2>0,M2<0.004),1,IF(AND(M2<0,M2>-0.004),-1,0))
     if 0 < rounded_price < 0.04:
         return 1
@@ -158,7 +160,7 @@ def optimized_calculate_bjzz(rounded_price):
         return -1 if -0.004 < rounded_price < 0 else 0
 
 
-def get_ibkr_report(ibkr_file):
+def get_ibkr_report(ibkr_file: Path) -> pd.DataFrame:
     df = pd.read_csv(ibkr_file)
     df = df.drop(["Acct ID", "Trade Date/Time", "Proceeds"], axis=1)
     df["Unnamed: 3"] = pd.to_datetime(
@@ -172,7 +174,7 @@ def get_ibkr_report(ibkr_file):
     return df
 
 
-def get_schwab_report(schwab_file):
+def get_schwab_report(schwab_file: Path) -> pd.DataFrame:
     with open(schwab_file, "r") as file:
         df = pd.read_csv(file)
         df_sub = df.drop(columns=["Description", "Fees & Comm", "Amount"])
@@ -182,7 +184,7 @@ def get_schwab_report(schwab_file):
         return df_sub
 
 
-def create_datetime_from_string(date_string):
+def create_datetime_from_string(date_string: str) -> datetime:
     # Use regular expression to extract month and day values
     if isinstance(date_string, Path):
         date_string = str(date_string)
@@ -199,7 +201,7 @@ def create_datetime_from_string(date_string):
     return datetime_obj
 
 
-def parse_etrade_report(df):
+def parse_etrade_report(df: pd.DataFrame) -> pd.DataFrame:
     df["Date & Time"] = pd.to_datetime(
         df["Date & Time"], format="%m/%d/%y %I:%M:%S %p EDT"
     )
@@ -222,43 +224,6 @@ def parse_etrade_report(df):
         }
     )
     return df
-
-
-def merge_etrade_report(report_df, etrade_df, et_acc):
-    merged = pd.merge(
-        left=report_df, right=etrade_df, on=["Date", "Symbol", "Action", "Broker"]
-    )
-    merged["Split"] = True
-    merged = merged.drop(
-        columns=["Size_x", "Price_x", "Dollar Amt_x", "Broker Executed_x"]
-    )
-    merged = merged.rename(
-        columns={
-            "Size_y": "Size",
-            "Price_y": "Price",
-            "Dollar Amt_y": "Dollar Amt",
-            "Broker Executed_y": "Broker Executed",
-        }
-    )
-
-    merged = merged.reindex(columns=COLUMN_ORDER)
-    et = report_df[report_df["Broker"] == et_acc]
-    report_df = report_df.drop(et[et["Order ID"].isin(merged["Order ID"])].index)
-    report_df = pd.concat([report_df, merged], ignore_index=True)
-
-    return report_df
-
-
-def merge_two_reports(report_1, report2):
-    parts = report_1.split("/")
-    df1 = pd.read_csv(report_1)
-    df2 = pd.read_csv(report2)
-    frames = [df1, df2]
-    result = pd.concat(frames, ignore_index=True)
-
-    result.to_csv(
-        f"/Users/sanathnair/Developer/trading/reports/{parts[-1]}", index=False
-    )
 
 
 if __name__ == "__main__":
