@@ -76,8 +76,8 @@ class TestProgramManager:
 
     def test_program_manager_update_program_info_file(self, expected_keys):
         curr_dir = Path(__file__).parent / "tmp"
-        
-        incomplete_data =  {
+
+        incomplete_data = {
             "DATE": datetime.now().strftime("%x"),
             "STATUS": "Buy",
             "CURRENTLY_TRADING_STOCKS": [],
@@ -92,8 +92,9 @@ class TestProgramManager:
 
         manager = ProgramManager(base_path=curr_dir)
 
-        self.test_program_manager_program_info_file_content((curr_dir, manager), expected_keys)
-
+        self.test_program_manager_program_info_file_content(
+            (curr_dir, manager), expected_keys
+        )
 
     def test_program_manager_get_valid_data(self, program_manager):
         _, manager = program_manager

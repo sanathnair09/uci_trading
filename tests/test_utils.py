@@ -84,13 +84,13 @@ class TestUtils:
 
     # @patch("builtins.input", return_value="")
     def test_process_empty_option_input(self, monkeypatch):
-        monkeypatch.setattr('builtins.input', lambda _: "")
+        monkeypatch.setattr("builtins.input", lambda _: "")
         res = process_option_input()
         assert len(res) == 0
 
     # @patch("builtins.input", return_value="AAPL-Call-100-01/01/2022")
     def test_process_option_input(self, monkeypatch):
-        monkeypatch.setattr('builtins.input', lambda _: "AAPL-Call-100-01/01/2022")
+        monkeypatch.setattr("builtins.input", lambda _: "AAPL-Call-100-01/01/2022")
         res = process_option_input()
         assert len(res) == 1
         option = res[0]

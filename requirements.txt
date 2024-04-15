@@ -11,3 +11,7 @@ robin-stocks==3.0.6
 tda-api==1.6.0
 black==24.2.0
 pytest==8.1.1
+mypy==1.9.0
+pre-commit==3.7.0
+# pylint==3.1.0
+pytest-mypy==0.10.3

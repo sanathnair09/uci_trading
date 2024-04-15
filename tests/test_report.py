@@ -19,7 +19,7 @@ class TestReport:
     def test_option_type(self):
         assert OptionType.CALL.value == "call"
         assert OptionType.PUT.value == "put"
-    
+
     def test_order_type(self):
         assert OrderType.MARKET.value == "Market"
         assert OrderType.LIMIT.value == "Limit"

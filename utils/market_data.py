@@ -1,6 +1,6 @@
 from datetime import datetime
 
-import tda.auth # type: ignore[import-untyped]
+import tda.auth  # type: ignore[import-untyped]
 from loguru import logger
 
 from brokers import TD_KEY, TD_TOKEN_PATH
