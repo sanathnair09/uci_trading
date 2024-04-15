@@ -1,9 +1,9 @@
-.idea/*
-.vscode/*
-reports/*
-logs/*
-data/*
-*/.ipynb_checkpoints/*
+.idea/
+.vscode/
+reports/
+logs/
+data/
+*/.ipynb_checkpoints/
 
 .DS_store
 .env
@@ -13,3 +13,10 @@ brokers/temp.csv
 *.pyc
 previous_program_info.json
 program_info.json
+
+temp.csv
+temp_option.csv
+
+.pytest_cache/
+__pycache__/
+.mypy_cache/

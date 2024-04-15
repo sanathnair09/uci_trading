@@ -16,9 +16,9 @@ from brokers import BASE_PATH
 class CustomChromeInstance:
 
     @staticmethod
-    def createInstance():
+    def createInstance() -> webdriver.Chrome:
         options = webdriver.ChromeOptions()
-        
+
         options.add_argument("--start-maximized")
         # Adding argument to disable the AutomationControlled flag
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -26,102 +26,86 @@ class CustomChromeInstance:
         # Exclude the collection of enable-automation switches
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-        prefs = {"credentials_enable_service": False,
-                 "profile.password_manager_enabled": False}
-        
+        prefs = {
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
+        }
+
         options.add_experimental_option("prefs", prefs)
         # Turn-off userAutomationExtension
         # options.add_experimental_option("useAutomationExtension", False)
-        return webdriver.Chrome(options = options)
+        return webdriver.Chrome(options=options)
 
     def __init__(self) -> None:
-        # Create Chromeoptions instance 
+        # Create Chromeoptions instance
         options = webdriver.ChromeOptions()
-        options.add_argument('--log-level=3')
+        options.add_argument("--log-level=3")
         options.add_argument("--start-maximized")
-        # Adding argument to disable the AutomationControlled flag 
+        # Adding argument to disable the AutomationControlled flag
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # Exclude the collection of enable-automation switches 
+        # Exclude the collection of enable-automation switches
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
         prefs = {
             "credentials_enable_service": False,
             "profile.password_manager_enabled": False,
-            "download.default_directory": str(BASE_PATH / "data")
+            "download.default_directory": str(BASE_PATH / "data"),
         }
 
         options.add_experimental_option("prefs", prefs)
 
-        # Turn-off userAutomationExtension 
+        # Turn-off userAutomationExtension
         # options.add_experimental_option("useAutomationExtension", False)
-        self._driver = webdriver.Chrome(service = Service(), options = options)
+        self._driver = webdriver.Chrome(service=Service(), options=options)
         self._actions = ActionChains(self._driver)
         # print(self._driver.service.path)
-        # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})") 
+        # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-    def __del__(self):
-        if self._driver:
-            try:
-                self._driver.quit()
-            except Exception as e:
-                logger.error(f"Error quitting selenium")
-                # print(e)
-        else:
-            logger.info(f"Web driver not initialized {self._driver}")
-
-    def open(self, page: str):
+    def open(self, page: str) -> None:
         self._driver.get(page)
 
-    def _findInElem(self, elem, by, id: str):
-        return elem.find_element(by, id)
+    def _findInElem(self, by: str, id: str) -> WebElement:
+        return self._driver.find_element(by, id)
 
-    def switchToFrame(self, id: str):
-        elem = self._findInElem(self._driver, By.ID, id)
+    def switchToFrame(self, id: str) -> None:
+        elem = self._findInElem(By.ID, id)
         self._driver.switch_to.frame(elem)
 
-    def resetFrame(self):
+    def resetFrame(self) -> None:
         self._driver.switch_to.default_content()
 
-    def find(self, by, id: str, elem = None):
-        return self._findInElem(elem, by, id) if elem else self._findInElem(self._driver, by, id)
+    def find(self, by: str, id: str) -> WebElement:
+        return self._findInElem(by, id)
 
-    def waitToClick(self, id: str):
+    def waitToClick(self, id: str) -> None:
         wait = WebDriverWait(self._driver, 10)
         element = wait.until(EC.element_to_be_clickable((By.ID, id)))
         element.click()
 
-    def waitForElementToLoad(self, by, elem: str, timeout: int = 10):
-        res = WebDriverWait(self._driver, timeout).until(EC.presence_of_element_located((by, elem)))
+    def waitForElementToLoad(self, by: str, elem: str, timeout: int = 10) -> WebElement:
+        res = WebDriverWait(self._driver, timeout).until(
+            EC.presence_of_element_located((by, elem))
+        )
         return res
 
-    def waitForTextInValue(self, by, elem, text: str):
-        return WebDriverWait(self._driver, 10).until(
-            EC.text_to_be_present_in_element_value(
-                (by, elem), text_ = text)
-        )
-
-    def sendKeyboardInput(self, elem, input: str):
+    def sendKeyboardInput(self, elem: WebElement, input: str) -> None:
         elem.clear()
         elem.send_keys(input)
 
-    def scroll(self, amount):
+    def scroll(self, amount: int) -> None:
         self._actions.scroll_by_amount(0, amount).perform()
 
-    def sendKeys(self, keys):
+    def sendKeys(self, keys: str) -> None:
         self._actions.send_keys(keys).perform()
 
-    def get_page_source(self):
+    def get_page_source(self) -> str:
         return self._driver.page_source
 
-    def current_url(self):
-        return self._driver.current_url
-    def get_elem_source(self, element: WebElement):
-        return element.get_attribute("outerHTML")
-
-    def refresh(self):
+    def refresh(self) -> None:
         self._driver.refresh()
 
 
-if __name__ == '__main__':
-    pass
+if __name__ == "__main__":
+    c = CustomChromeInstance()
+    c.open("https://www.google.com")
