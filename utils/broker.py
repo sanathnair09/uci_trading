@@ -199,7 +199,7 @@ class Broker(ABC):
         pre_stock_data: StockData,
         post_stock_data: StockData,
         **kwargs: Union[str, float],
-    ):
+    ) -> None:
         pass
 
     @abstractmethod
@@ -212,5 +212,5 @@ class Broker(ABC):
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
         **kwargs: str,
-    ):
+    ) -> None:
         pass

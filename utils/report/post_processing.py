@@ -49,7 +49,7 @@ class PostProcessing:
         # rh_acc = input("Which RH account do you want to login to? (RH/RH2): ")
         Robinhood.login_custom(account="RH2")
         self._brokers = {
-            "E2": ETrade("", BrokerNames.E2),
+            "E2": ETrade(Path(""), BrokerNames.E2),
         }
         for broker in self._brokers.values():
             broker.login()

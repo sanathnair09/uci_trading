@@ -1,7 +1,7 @@
 import argparse
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description = "CLI interface to run specific subscripts in trading program")
 
     parser.add_argument("-s", "--start", help = "Run the main trading program")
