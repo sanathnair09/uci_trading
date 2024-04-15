@@ -1,7 +1,11 @@
+from pathlib import Path
 import time
+from typing import Any, Optional, Union
 from brokers import VANGUARD_LOGIN, VANGUARD_PASSWORD
 from utils.broker import Broker, OptionOrder, StockOrder
 from utils.report.report import (
+    NULL_OPTION_DATA,
+    NULL_STOCK_DATA,
     ActionType,
     BrokerNames,
     OptionData,
@@ -15,14 +19,19 @@ from selenium.webdriver.common.by import By
 
 
 class Vanguard(Broker):
-    def __init__(self, report_file, broker_name: BrokerNames, option_report_file=None):
+    def __init__(
+        self,
+        report_file: Path,
+        broker_name: BrokerNames,
+        option_report_file: Optional[Path] = None,
+    ):
         super().__init__(report_file, broker_name, option_report_file)
         self._chrome_inst = CustomChromeInstance()
         self._chrome_inst.open(
             "https://personal.vanguard.com/us/TradeTicket?investmentType=OPTION"
         )
 
-    def login(self):
+    def login(self) -> None:
         username_input = self._chrome_inst.find(By.XPATH, '//*[@id="USER"]')
         self._chrome_inst.sendKeyboardInput(username_input, VANGUARD_LOGIN)
         password_input = self._chrome_inst.find(By.XPATH, '//*[@id="PASSWORD-blocked"]')
@@ -33,49 +42,49 @@ class Vanguard(Broker):
         login_btn.click()
         time.sleep(1)
 
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def _market_buy(self, order: StockOrder):
+    def _market_buy(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def _market_sell(self, order: StockOrder):
+    def _market_sell(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def _limit_buy(self, order: StockOrder):
+    def _limit_buy(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def _limit_sell(self, order: StockOrder):
+    def _limit_sell(self, order: StockOrder) -> Any:
         return NotImplemented
 
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> Any:
         pass
 
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> Any:
         pass
 
     def _get_stock_data(self, sym: str) -> StockData:
-        pass
+        return NULL_STOCK_DATA
 
     def _get_option_data(self, order: OptionOrder) -> OptionData:
-        pass
+        return NULL_OPTION_DATA
 
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> None:
         self._set_option_type(order.option_type)
 
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> None:
         pass
 
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> None:
         pass
 
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> None:
         pass
 
-    def _set_option_type(self, option_type: OptionType):
+    def _set_option_type(self, option_type: OptionType) -> None:
         if option_type == OptionType.CALL:
             self._chrome_inst.find(
                 By.XPATH, '//*[@id="baseForm:callRadioButton"]'
@@ -85,37 +94,37 @@ class Vanguard(Broker):
                 By.XPATH, '//*[@id="baseForm:putRadioButton"]'
             ).click()
 
-    def _set_transaction_type(self):
+    def _set_transaction_type(self) -> None:
         pass
 
-    def get_current_positions(self) -> list[StockOrder]:
-        return NotImplemented
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
+        return [], []
 
     def _save_report(
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs
-    ):
+        **kwargs: Union[float, str]
+    ) -> None:
         pass
 
     def _save_option_report(
         self,
         order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs
-    ):
+        **kwargs: str
+    ) -> None:
         pass
 
 
 if __name__ == "__main__":
-    broker = Vanguard("temp.csv", BrokerNames.VD)
+    broker = Vanguard(Path("temp.csv"), BrokerNames.VD)
     broker.login()

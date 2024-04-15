@@ -1,12 +1,13 @@
 from datetime import datetime
-from typing import Any, Callable, Optional, no_type_check
+from typing import Any, Callable, Optional, TypeVar, Union, no_type_check
 from utils.broker import OptionOrder, StockOrder
 
 from utils.report.report import OptionType, OrderType
 
+
 @no_type_check
 def repeat_on_fail(times: int = 5, default_return=False):
-    def _repeat(func) :
+    def _repeat(func):
         def wrapper(*args, **kwargs):
             _times = times
             while _times != 0:
@@ -22,6 +23,7 @@ def repeat_on_fail(times: int = 5, default_return=False):
         return wrapper
 
     return _repeat
+
 
 @no_type_check
 def repeat(times: int = 5):
@@ -68,7 +70,9 @@ def parse_option_string(option_string: str) -> Optional[OptionOrder]:
     if option_string == "":
         return None
     sym, option_type_str, strike, expiration_str = option_string.split("-")
-    option_type = OptionType.CALL if option_type_str.upper() == "CALL" else OptionType.PUT
+    option_type = (
+        OptionType.CALL if option_type_str.upper() == "CALL" else OptionType.PUT
+    )
     expiration = datetime.strptime(expiration_str, "%m/%d/%Y").strftime("%Y-%m-%d")
     return OptionOrder(sym, option_type, strike, expiration, OrderType.MARKET)
 
@@ -85,10 +89,19 @@ def parse_stock_string(stock_string: str) -> list[StockOrder]:
     for part in parts:
         sym, quantity, price, order_type_str = part.split(",")
         order_type = (
-            OrderType.MARKET if order_type_str == "OrderType.MARKET" else OrderType.LIMIT
+            OrderType.MARKET
+            if order_type_str == "OrderType.MARKET"
+            else OrderType.LIMIT
         )
         res.append(StockOrder(sym, float(quantity), float(price), order_type))
     return res
+
+
+T = TypeVar("T")
+
+
+def check_none(value: T) -> Union[T, str]:
+    return value if value is None else ""
 
 
 if __name__ == "__main__":

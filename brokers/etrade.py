@@ -3,10 +3,10 @@ from datetime import datetime
 from pathlib import Path
 from pyexpat import ExpatError
 from random import randint
-from typing import Optional, Union
+from typing import Any, Optional, Union, cast
 
 import pandas as pd
-import pyetrade
+import pyetrade  # type: ignore[import-untyped]
 from loguru import logger
 
 from brokers import (
@@ -40,14 +40,15 @@ from utils.util import repeat_on_fail
 
 
 _ETradeOrderInfo = namedtuple(
-    "ETradeOrderInfo", ["broker_executed", "quantity", "price", "dollar_amt", "orderId"]
+    "_ETradeOrderInfo",
+    ["broker_executed", "quantity", "price", "dollar_amt", "orderId"],
 )
 
 
 class ETrade(Broker):
     def __init__(
         self,
-        report_file: Union[Path, str],
+        report_file: Path,
         broker_name: BrokerNames,
         option_report_file: Optional[Path] = None,
     ):
@@ -73,7 +74,7 @@ class ETrade(Broker):
             else ETRADE2_ACCOUNT_ID_KEY
         )
 
-    def login(self):
+    def login(self) -> None:
         """
         Possible instability with automated token collection.
         Sometimes the XPATH for line 54 changes so if you notice that it is asking you to manually verify
@@ -141,7 +142,7 @@ class ETrade(Broker):
             )
             chrome_inst.quit()
 
-    def _get_stock_data(self, sym: str):
+    def _get_stock_data(self, sym: str) -> StockData:
         quote = self._market.get_quote([sym], resp_format="json")["QuoteResponse"][
             "QuoteData"
         ][0]
@@ -152,11 +153,13 @@ class ETrade(Broker):
             float(quote["All"]["totalVolume"]),
         )
 
-    def get_order_data(self, orderId, sym: str, date: str):
+    def get_order_data(
+        self, orderId: str, sym: str, date: str
+    ) -> tuple[pd.DataFrame, bool]:
         date_object = datetime.strptime(date, r"%m/%d/%y")
         fromDate = date_object.strftime(r"%m%d%Y")
         data = self._orders.list_orders(
-            account_id_key=self._account_id,  # type: ignore
+            account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
             symbol=sym,
@@ -183,11 +186,13 @@ class ETrade(Broker):
 
         return splits_df, (splits_df.shape[0] > 1)
 
-    def get_order_option_data(self, orderId, sym: str, date: str):
+    def get_order_option_data(
+        self, orderId: str, sym: str, date: str
+    ) -> tuple[pd.DataFrame, bool]:
         date_object = datetime.strptime(date, r"%m/%d/%y")
         fromDate = date_object.strftime(r"%m%d%Y")
         data = self._orders.list_orders(
-            account_id_key=self._account_id,  # type: ignore
+            account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
             symbol=sym,
@@ -215,12 +220,12 @@ class ETrade(Broker):
         return splits_df, (splits_df.shape[0] > 1)
 
     @repeat_on_fail()
-    def _get_latest_order(self, orderID) -> _ETradeOrderInfo:
+    def _get_latest_order(self, orderID: str) -> _ETradeOrderInfo:
         """
         ETrade API: https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/OrdersResponse
         """
         order_data = self._orders.list_orders(
-            account_id_key=self._account_id, resp_format="json", orderId=orderID  # type: ignore
+            account_id_key=self._account_id, resp_format="json", orderId=orderID
         )["OrdersResponse"]["Order"][0]
         orderId = order_data["orderId"]
         order_data = order_data["OrderDetail"][0]
@@ -237,7 +242,7 @@ class ETrade(Broker):
             order_data["placedTime"], quantity, price, dollar_amt, orderId
         )
 
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> None:
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -258,7 +263,7 @@ class ETrade(Broker):
             orderID=orderID,
         )
 
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> None:
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -279,7 +284,7 @@ class ETrade(Broker):
             orderID=orderID,
         )
 
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> None:
         ### PRE BUY INFO ###
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
@@ -304,7 +309,7 @@ class ETrade(Broker):
             orderID=orderID,
         )
 
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> None:
         ### PRE SELL INFO ###
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
@@ -329,21 +334,21 @@ class ETrade(Broker):
             orderID=orderID,
         )
 
-    def _market_buy(self, order: StockOrder):
+    def _market_buy(self, order: StockOrder) -> str:
         return self._order_stock_helper(order, ActionType.BUY, OrderType.MARKET)
 
-    def _market_sell(self, order: StockOrder):
+    def _market_sell(self, order: StockOrder) -> str:
         return self._order_stock_helper(order, ActionType.SELL, OrderType.MARKET)
 
-    def _limit_buy(self, order: StockOrder):
+    def _limit_buy(self, order: StockOrder) -> Any:
         return NotImplementedError
 
-    def _limit_sell(self, order: StockOrder):
+    def _limit_sell(self, order: StockOrder) -> Any:
         return NotImplementedError
 
     def _order_stock_helper(
         self, order: StockOrder, action_type: ActionType, order_type: OrderType
-    ):
+    ) -> str:
         # TODO: implement LIMIT orders
         order_action = "BUY" if action_type == ActionType.BUY else "SELL"
         res = self._orders.place_equity_order(
@@ -356,21 +361,21 @@ class ETrade(Broker):
             orderTerm="GOOD_FOR_DAY",
             marketSession="REGULAR",
         )
-        return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
+        return cast(str, res["PlaceOrderResponse"]["OrderIds"]["orderId"])
 
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> str:
         return self._option_helper(order, ActionType.OPEN)
 
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> str:
         return self._option_helper(order, ActionType.CLOSE)
 
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> str:
         return self._option_helper(order, ActionType.OPEN)
 
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> str:
         return self._option_helper(order, ActionType.CLOSE)
 
-    def _option_helper(self, order: OptionOrder, action_type: ActionType):
+    def _option_helper(self, order: OptionOrder, action_type: ActionType) -> str:
         order_action = "BUY_OPEN" if action_type == ActionType.OPEN else "SELL_CLOSE"
         call_put = "CALL" if order.option_type == OptionType.CALL else "PUT"
         res = self._orders.place_option_order(
@@ -386,7 +391,7 @@ class ETrade(Broker):
             orderTerm="GOOD_FOR_DAY",
             marketSession="REGULAR",
         )
-        return res["PlaceOrderResponse"]["OrderIds"]["orderId"]
+        return cast(str, res["PlaceOrderResponse"]["OrderIds"]["orderId"])
 
     def _get_option_data(self, option: OptionOrder) -> OptionData:
         date = datetime.strptime(option.expiration, "%Y-%m-%d")
@@ -413,7 +418,7 @@ class ETrade(Broker):
                     pair["OptionGreeks"]["gamma"],
                     pair["OptionGreeks"]["vega"],
                     pair["OptionGreeks"]["rho"],
-                    "",  # type: ignore # (etrade doesn't provide underlying price)
+                    None,  # (etrade doesn't provide underlying price)
                     pair["inTheMoney"] == "y",
                 )
         return NULL_OPTION_DATA
@@ -422,13 +427,13 @@ class ETrade(Broker):
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs,
-    ):
-        order_data = self._get_latest_order(kwargs["orderID"])
+        **kwargs: Union[str, float],
+    ) -> None:
+        order_data = self._get_latest_order(cast(str, kwargs["orderID"]))
 
         self._add_report_to_file(
             ReportEntry(
@@ -445,7 +450,7 @@ class ETrade(Broker):
                 OrderType.MARKET,
                 False,
                 order_data.orderId,
-                "",  # type: ignore # (etrade doesn't have activity id)
+                "",  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
@@ -456,12 +461,12 @@ class ETrade(Broker):
         self,
         order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs,
-    ):
+        **kwargs: str,
+    ) -> None:
         order_data = self._get_latest_order(kwargs["orderID"])
 
         self._add_option_report_to_file(
@@ -480,19 +485,21 @@ class ETrade(Broker):
                 OrderType.MARKET,
                 "",
                 order_data.orderId,
-                "",  # type: ignore # (etrade doesn't have activity id)
+                "",  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
 
         self._save_option_report_to_file()
 
-    def get_current_positions(self):
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         current_positions: list[StockOrder] = []
         current_options_positions: list[OptionOrder] = []
         # try catch for when nothing left
         try:
-            positions = self._accounts.get_account_portfolio(self._account_id)["PortfolioResponse"]["AccountPortfolio"]["Position"]  # type: ignore
+            positions = self._accounts.get_account_portfolio(self._account_id)[
+                "PortfolioResponse"
+            ]["AccountPortfolio"]["Position"]
             if type(positions) is list:  # multiple stocks are left over
                 for position in positions:
                     if position["Product"]["securityType"] == "EQ":

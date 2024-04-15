@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -80,7 +80,7 @@ class Broker(ABC):
 
     def __init__(
         self,
-        report_file: Union[Path, str],
+        report_file: Path,
         broker_name: BrokerNames,
         option_report_file: Optional[Path] = None,
     ):
@@ -88,8 +88,6 @@ class Broker(ABC):
         self._executed_trades: list[ReportEntry] = []
         self._executed_option_trades: list[OptionReportEntry] = []
 
-        if not isinstance(report_file, Path):
-            report_file = Path(report_file)
         self._report_file = report_file
 
         if option_report_file and not isinstance(option_report_file, Path):
@@ -156,35 +154,35 @@ class Broker(ABC):
         pass
 
     @abstractmethod
-    def _market_buy(self, order: StockOrder):
+    def _market_buy(self, order: StockOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _market_sell(self, order: StockOrder):
+    def _market_sell(self, order: StockOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _limit_buy(self, order: StockOrder):
+    def _limit_buy(self, order: StockOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _limit_sell(self, order: StockOrder):
+    def _limit_sell(self, order: StockOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> Union[str, dict, None]:
         pass
 
     @abstractmethod
@@ -200,7 +198,7 @@ class Broker(ABC):
         program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs: dict[str, str]
+        **kwargs: Union[str, float],
     ):
         pass
 
@@ -213,6 +211,6 @@ class Broker(ABC):
         program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs: dict[str, str],
+        **kwargs: str,
     ):
         pass

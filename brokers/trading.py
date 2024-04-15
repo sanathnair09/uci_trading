@@ -2,7 +2,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from pyexpat import ExpatError
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import schedule
 from loguru import logger
@@ -27,7 +27,7 @@ class AutomatedTrading:
         *,
         time_between_buy_and_sell: float,
         time_between_groups: float,
-        enable_stdout=False,
+        enable_stdout: bool = False,
     ):
         logger.info("Beginning Automated Trading")
 
@@ -56,12 +56,12 @@ class AutomatedTrading:
 
         self._login_all()
 
-    def _login_all(self):
+    def _login_all(self) -> None:
         for broker in self._brokers:
             broker.login()
         logger.info("Finished Logging into all brokers...")
 
-    def start(self):
+    def start(self) -> None:
         self._schedule()
         try:
             while True:
@@ -74,7 +74,7 @@ class AutomatedTrading:
             for broker in self._brokers:
                 del broker
 
-    def _pre_schedule_processing(self):
+    def _pre_schedule_processing(self) -> tuple[int, int]:
         # program is run on new day
         if self._manager.get_program_data("DATE") != datetime.now().strftime("%x"):
             self._manager.update_program_data("DATE", datetime.now().strftime("%x"))
@@ -93,7 +93,7 @@ class AutomatedTrading:
 
         return current_idx, self._manager.get_program_data("COMPLETED_OPTIONS")
 
-    def _schedule(self):
+    def _schedule(self) -> None:
         current_idx, completed_options = self._pre_schedule_processing()
 
         # need to subtract in the case when re-running on same day and already completed some trades
@@ -150,7 +150,7 @@ class AutomatedTrading:
         self,
         stock_list: Union[list[StockOrder], list[OptionOrder]],
         action: ActionType = ActionType.SELL,
-    ):
+    ) -> None:
         """
         in the event the program crashes while selling and couldn't sell you can manually feed in the information and sell the stocks
         :param stock_list: list of tuple (stock, amount)
@@ -176,17 +176,17 @@ class AutomatedTrading:
             ]
             self._perform_action(brokers, stock_orders, action, main_program=False)
 
-    def sell_leftover_positions(self):
+    def sell_leftover_positions(self) -> None:
         for broker in self._brokers:
             try:
                 positions, option_position = broker.get_current_positions()
                 print(broker.name(), str(positions), str(option_position))
 
-                for order in positions:
-                    broker.sell(order)
+                for stock_order in positions:
+                    broker.sell(stock_order)
 
-                for order in option_position:
-                    broker.sell_option(order)
+                for option_order in option_position:
+                    broker.sell_option(option_order)
 
             except ExpatError:
                 print(broker.name(), "No positions")
@@ -215,9 +215,8 @@ class AutomatedTrading:
         brokers: list[Broker],
         stock_list: list[StockOrder],
         action: ActionType,
-        enable: Optional[list[str]] = None,
         main_program: bool = True,
-    ):
+    ) -> None:
         for order in stock_list:
             for broker in brokers:
                 try:
@@ -244,7 +243,7 @@ class AutomatedTrading:
         order: OptionOrder,
         action: ActionType,
         main_program: bool = True,
-    ):
+    ) -> None:
         for broker in brokers:
             try:
                 if action == ActionType.BUY:
@@ -268,7 +267,7 @@ class AutomatedTrading:
         sym_list: list[str],
         option: OptionOrder,
         fractional: float,
-    ):
+    ) -> Any:
         self._manager.update_program_data("STATUS", "Buy")
 
         brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
@@ -314,7 +313,6 @@ class AutomatedTrading:
             fractional_brokers,
             fractional_orders,
             ActionType.BUY,
-            enable=["FD", "IF", "RH"],
         )
 
         if option:
@@ -329,7 +327,7 @@ class AutomatedTrading:
 
     def _sell_across_brokers(
         self,
-    ):
+    ) -> Any:
         self._manager.update_program_data("STATUS", "Sell")
 
         brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
@@ -356,7 +354,6 @@ class AutomatedTrading:
             fractional_brokers,
             fractional_trades,
             ActionType.SELL,
-            enable=["FD", "IF", "RH"],
         )
 
         option_order = parse_option_string(
@@ -370,17 +367,16 @@ class AutomatedTrading:
         return schedule.CancelJob
 
     @staticmethod
-    def generate_report(*, version=0):
+    def generate_report(*, version: int = 0) -> None:
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
         processor.optimized_generate_report(f"reports/original/report_04_03.csv")
 
     @staticmethod
-    def generate_option_report(*, version=0):
+    def generate_option_report(*, version: int = 0) -> None:
         processor = PostProcessing(version)
         # processor.generate_option_report(f"reports/original/option_report_xx_xx.csv")
-
 
 
 if __name__ == "__main__":

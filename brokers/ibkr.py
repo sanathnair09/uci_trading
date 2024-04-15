@@ -1,18 +1,23 @@
+from pathlib import Path
 import time
 from datetime import datetime
 from io import StringIO
+from typing import Any, Optional, Union, cast
 
 import pandas as pd
 from loguru import logger
 from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 
 from brokers import IBKR_LOGIN, IBKR_PASSWORD
 from utils.broker import Broker, StockOrder, OptionOrder
 from utils.market_data import MarketData
 from utils.report.report import (
+    NULL_STOCK_DATA,
     BrokerNames,
+    OptionData,
     OrderType,
     ActionType,
     ReportEntry,
@@ -27,12 +32,17 @@ class IBKR(Broker):
     IBKR IS VERY SCARY
     """
 
-    def __init__(self, report_file, broker_name: BrokerNames, option_report_file=None):
+    def __init__(
+        self,
+        report_file: Path,
+        broker_name: BrokerNames,
+        option_report_file: Optional[Path] = None,
+    ):
         super().__init__(report_file, broker_name, option_report_file)
         self._chrome_inst = CustomChromeInstance()
         self._chrome_inst.open("https://ndcdyn.interactivebrokers.com/sso/Login")
 
-    def login(self):
+    def login(self) -> None:
         username_elem = self._chrome_inst.find(
             By.XPATH,
             "/html/body/section[1]/div/div/div[2]/div[2]/form[2]/div[1]/fieldset[1]/div/input",
@@ -65,7 +75,7 @@ class IBKR(Broker):
         self.fix_permission()
 
     @repeat()
-    def fix_permission(self):
+    def fix_permission(self) -> None:
         try:
             login_with_trading = self._chrome_inst.find(
                 By.XPATH, "/html/body/div[4]/div/div[2]/div/div/div[1]/button"
@@ -74,10 +84,10 @@ class IBKR(Broker):
         except:
             pass
 
-    def _get_stock_data(self, sym: str):
-        pass
+    def _get_stock_data(self, sym: str) -> StockData:
+        return NULL_STOCK_DATA
 
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> None:
         pre_stock_data = MarketData.get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -100,7 +110,7 @@ class IBKR(Broker):
             quantity=order.quantity,
         )
 
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> None:
         pre_stock_data = MarketData.get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -122,23 +132,22 @@ class IBKR(Broker):
             quantity=order.quantity,
         )
 
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _market_buy(self, order: StockOrder):
+    def _market_buy(self, order: StockOrder) -> None:
         try:
             self._choose_stock(order.sym)
             self._set_amount(order.quantity)
             self._choose_order_type(OrderType.MARKET, ActionType.BUY)
             self._validate_order(order.sym, ActionType.BUY)
         except Exception as e:
-            self._error_count += 1
             raise e
 
-    def _market_sell(self, order: StockOrder):
+    def _market_sell(self, order: StockOrder) -> None:
         try:
             self._choose_stock(order.sym)
             self._set_sell()
@@ -146,16 +155,15 @@ class IBKR(Broker):
             self._choose_order_type(OrderType.MARKET, ActionType.SELL)
             self._validate_order(order.sym, ActionType.SELL)
         except Exception as e:
-            self._error_count += 1
             raise e
 
-    def _limit_buy(self, order: StockOrder):
+    def _limit_buy(self, order: StockOrder) -> Any:
         return NotImplementedError
 
-    def _limit_sell(self, order: StockOrder):
+    def _limit_sell(self, order: StockOrder) -> Any:
         return NotImplementedError
 
-    def _test_variation(self, path, *args):
+    def _test_variation(self, path: str, *args: int) -> WebElement:
         """
         place the numbers in args in probability of expecting it (i.e. if 5 is more likely than 4 do 5, 4)
         :param path:
@@ -171,7 +179,7 @@ class IBKR(Broker):
                 pass
         raise NoSuchElementException()
 
-    def _choose_stock(self, sym: str):
+    def _choose_stock(self, sym: str) -> None:
         sym_input = self._test_variation(
             "/html/body/div[{f}]/div/div[2]/div[1]/div[1]/div/div/form/div/span/span/input",
             5,
@@ -200,12 +208,12 @@ class IBKR(Broker):
 
         time.sleep(1)
 
-    def _set_sell(self):
+    def _set_sell(self) -> None:
         sell_tab = self._chrome_inst.find(By.XPATH, '//*[@id="sellTab"]')
         sell_tab.click()
         time.sleep(1)
 
-    def _set_amount(self, amount):
+    def _set_amount(self, amount: float) -> None:
         quantity_elem = self._test_variation(
             "/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[2]/div/div[1]/div/div[1]/span/span/input",
             5,
@@ -223,7 +231,9 @@ class IBKR(Broker):
 
         time.sleep(1)
 
-    def _choose_order_type(self, order_type: OrderType, action_type: ActionType):
+    def _choose_order_type(
+        self, order_type: OrderType, action_type: ActionType
+    ) -> None:
         if action_type == ActionType.BUY:
             dropdown = self._test_variation(
                 "/html/body/div[{f}]/div/div[3]/div[2]/div/div[2]/div[1]/form/div[2]/div/div[3]/div[1]/span/span",
@@ -244,7 +254,7 @@ class IBKR(Broker):
             self._chrome_inst.sendKeys(Keys.RETURN)
         # limit is default
 
-    def _go_back(self, action_type: ActionType):
+    def _go_back(self, action_type: ActionType) -> None:
         if action_type == ActionType.BUY:
             back_btn = self._chrome_inst.find(
                 By.XPATH,
@@ -259,7 +269,7 @@ class IBKR(Broker):
         if text == "Back":
             back_btn.click()
 
-    def _validate_order(self, sym: str, action_type: ActionType):
+    def _validate_order(self, sym: str, action_type: ActionType) -> None:
         preview_btn = self._chrome_inst.find(By.XPATH, '//*[@id="cp-btn-preview"]')
         preview_btn.click()
         time.sleep(2)
@@ -317,19 +327,19 @@ class IBKR(Broker):
             logger.error(f"Error completing IF action for {sym}")
             self._go_back(action_type)
 
-    def _get_option_data(self, order: OptionOrder):
+    def _get_option_data(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
     def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
@@ -340,8 +350,8 @@ class IBKR(Broker):
         positions: list[StockOrder] = []
         try:
             page_source = self._chrome_inst.get_page_source()
-            df = pd.read_html(StringIO(page_source))
-            df = df[0]
+            dfs = pd.read_html(StringIO(page_source))
+            df = dfs[0]
             temp = df[["Instrument", "Position"]].to_numpy()
             positions = [
                 StockOrder(sym if "●" not in sym else sym[1:], float(amount))
@@ -355,28 +365,28 @@ class IBKR(Broker):
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs,
-    ):
+        **kwargs: Union[float, str],
+    ) -> None:
         self._add_report_to_file(
             ReportEntry(
                 program_submitted,
                 program_executed,
-                "",
+                None,
                 sym,
                 action_type,
-                kwargs["quantity"],
-                "",
-                "",
+                cast(float, kwargs["quantity"]),
+                None,
+                None,
                 pre_stock_data,
                 post_stock_data,
                 OrderType.MARKET,
                 False,
-                "",
-                "",
+                None,
+                None,
                 BrokerNames.IF,
             )
         )
@@ -385,22 +395,18 @@ class IBKR(Broker):
 
     def _save_option_report(
         self,
-        sym: str,
+        order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
-        pre_stock_data: StockData,
-        post_stock_data: StockData,
-        **kwargs,
-    ):
+        program_submitted: str,
+        program_executed: str,
+        pre_stock_data: OptionData,
+        post_stock_data: OptionData,
+        **kwargs: str,
+    ) -> Any:
         return NotImplementedError
 
 
 if __name__ == "__main__":
-    a = IBKR("temp.csv", BrokerNames.IF)
+    a = IBKR(Path("temp.csv"), BrokerNames.IF)
     a.login()
-    res = a.get_current_positions()
-    for sym, quantity in res:
-        a.sell(StockOrder(sym, quantity, 0, OrderType.MARKET))
-    # print(res)
     pass

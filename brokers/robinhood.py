@@ -2,9 +2,9 @@ from datetime import datetime
 import math
 from pathlib import Path
 import time
-from typing import Any
+from typing import Any, Optional, Union, cast
 
-import robin_stocks.robinhood as rh
+import robin_stocks.robinhood as rh  # type: ignore [import-untyped]
 
 from brokers import RH_LOGIN, RH_PASSWORD, RH_LOGIN2, RH_PASSWORD2
 from utils.broker import Broker, StockOrder, OptionOrder
@@ -22,9 +22,11 @@ from utils.util import parse_option_string
 
 
 class Robinhood(Broker):
-    def _get_order_data(self, orderId: str):
+    def _get_order_data(
+        self, orderId: str
+    ) -> list[tuple[float, float, float, str, str]]:
         res = []
-        order_data = rh.get_stock_order_info(orderId)
+        order_data = cast(dict, rh.get_stock_order_info(orderId))
         for execution in order_data["executions"]:
             res.append(
                 (
@@ -37,7 +39,7 @@ class Robinhood(Broker):
             )
         return res
 
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> None:
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -55,14 +57,13 @@ class Robinhood(Broker):
                 program_executed,
                 pre_stock_data,
                 post_stock_data,
-                order_type=OrderType.MARKET,
                 order_id=res["id"],
                 quantity=order.quantity,
             )
         elif "detail" in res:
             raise ValueError(res["detail"])
 
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> None:
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
 
@@ -81,14 +82,13 @@ class Robinhood(Broker):
                 program_executed,
                 pre_stock_data,
                 post_stock_data,
-                order_type=OrderType.MARKET,
                 order_id=res["id"],
                 quantity=order.quantity,
             )
         elif "detail" in res:
             raise ValueError(res["detail"])
 
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> None:
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
 
@@ -107,11 +107,10 @@ class Robinhood(Broker):
             program_executed,
             pre_stock_data,
             post_stock_data,
-            order_type=OrderType.MARKET,
             order_id=res["id"],
         )
 
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> None:
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
 
@@ -129,72 +128,87 @@ class Robinhood(Broker):
             program_executed,
             pre_stock_data,
             post_stock_data,
-            order_type=OrderType.MARKET,
             order_id=res["id"],
         )
 
-    def _limit_buy(self, order: StockOrder):
-        return rh.order_buy_limit(
-            order.sym,
-            order.quantity,
-            order.price,
-            timeInForce="gfd",
-            extendedHours=False,
-            jsonify=True,
+    def _limit_buy(self, order: StockOrder) -> dict:
+        return cast(
+            dict,
+            rh.order_buy_limit(
+                order.sym,
+                order.quantity,
+                order.price,
+                timeInForce="gfd",
+                extendedHours=False,
+                jsonify=True,
+            ),
         )
 
-    def _limit_sell(self, order: StockOrder):
-        return rh.order_sell_limit(
-            order.sym,
-            order.quantity,
-            order.price,
-            timeInForce="gtc",
-            extendedHours=False,
-            jsonify=True,
+    def _limit_sell(self, order: StockOrder) -> dict:
+        return cast(
+            dict,
+            rh.order_sell_limit(
+                order.sym,
+                order.quantity,
+                order.price,
+                timeInForce="gtc",
+                extendedHours=False,
+                jsonify=True,
+            ),
         )
 
-    def _market_buy(self, order: StockOrder):
+    def _market_buy(self, order: StockOrder) -> dict:
         if order.quantity < 1:
-            return rh.order_buy_fractional_by_quantity(
-                order.sym,
-                order.quantity,
-                timeInForce="gfd",
-                extendedHours=False,
-                jsonify=True,
+            res = (
+                rh.order_buy_fractional_by_quantity(
+                    order.sym,
+                    order.quantity,
+                    timeInForce="gfd",
+                    extendedHours=False,
+                    jsonify=True,
+                ),
             )
         else:
-            return rh.order_buy_market(
-                order.sym,
-                order.quantity,
-                timeInForce="gfd",
-                extendedHours=False,
-                jsonify=True,
+            res = (
+                rh.order_buy_market(
+                    order.sym,
+                    order.quantity,
+                    timeInForce="gfd",
+                    extendedHours=False,
+                    jsonify=True,
+                ),
             )
+        return cast(dict, res)
 
-    def _market_sell(self, order: StockOrder):
+    def _market_sell(self, order: StockOrder) -> dict:
         if order.quantity < 1:
-            return rh.order_sell_fractional_by_quantity(
-                order.sym,
-                order.quantity,
-                timeInForce="gfd",
-                extendedHours=False,
-                jsonify=True,
+            res = (
+                rh.order_sell_fractional_by_quantity(
+                    order.sym,
+                    order.quantity,
+                    timeInForce="gfd",
+                    extendedHours=False,
+                    jsonify=True,
+                ),
             )
         else:
-            return rh.order_sell_market(
-                order.sym,
-                order.quantity,
-                timeInForce="gfd",
-                extendedHours=False,
-                jsonify=True,
+            res = (
+                rh.order_sell_market(
+                    order.sym,
+                    order.quantity,
+                    timeInForce="gfd",
+                    extendedHours=False,
+                    jsonify=True,
+                ),
             )
+        return cast(dict, res)
 
-    def _handle_option_tick_size(
-        self, action: ActionType, option: OptionOrder, price: float
-    ) -> float:
+    def _handle_option_tick_size(self, action: ActionType, price: float) -> float:
         return self._round_to_nearest(action, price, 0.05)
 
-    def _round_to_nearest(self, action: ActionType, price: float, nearest: float):
+    def _round_to_nearest(
+        self, action: ActionType, price: float, nearest: float
+    ) -> float:
         if price / nearest >= 1:
             return round(
                 (
@@ -207,12 +221,12 @@ class Robinhood(Broker):
         else:
             return price
 
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> dict:
         limit_price = round(
             float(self._get_option_data(order).ask) * 1.03,
             2,
         )
-        limit_price = self._handle_option_tick_size(ActionType.OPEN, order, limit_price)
+        limit_price = self._handle_option_tick_size(ActionType.OPEN, limit_price)
 
         return self._perform_option_trade(
             ActionType.OPEN,
@@ -223,14 +237,12 @@ class Robinhood(Broker):
             order.expiration,
         )
 
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> dict:
         limit_price = round(
             float(self._get_option_data(order).bid) * 0.97,
             2,
         )
-        limit_price = self._handle_option_tick_size(
-            ActionType.CLOSE, order, limit_price
-        )
+        limit_price = self._handle_option_tick_size(ActionType.CLOSE, limit_price)
 
         return self._perform_option_trade(
             ActionType.CLOSE,
@@ -241,11 +253,11 @@ class Robinhood(Broker):
             order.expiration,
         )
 
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
         # return self._perform_option_trade(ActionType.OPEN, OptionType.PUT, sym, limit_price, strike, expiration)
 
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
         # return self._perform_option_trade(ActionType.CLOSE, OptionType.PUT, sym, limit_price, strike, expiration)
 
@@ -257,7 +269,7 @@ class Robinhood(Broker):
         limit_price: float,
         strike: float,
         expiration: str,
-    ):
+    ) -> dict:
         """
         expiration: "YYYY-MM-DD"
         """
@@ -272,7 +284,7 @@ class Robinhood(Broker):
             else OptionType.PUT.value
         )
         if action == ActionType.OPEN:
-            return rh.order_buy_option_limit(
+            res = rh.order_buy_option_limit(
                 positionEffect=positionEffect,
                 creditOrDebit="debit",
                 price=limit_price,
@@ -285,7 +297,7 @@ class Robinhood(Broker):
                 jsonify=True,
             )
         else:
-            return rh.order_sell_option_limit(
+            res = rh.order_sell_option_limit(
                 positionEffect=positionEffect,
                 creditOrDebit="credit",
                 price=limit_price,
@@ -297,22 +309,26 @@ class Robinhood(Broker):
                 timeInForce="gfd",
                 jsonify=True,
             )
+        return cast(dict, res)
 
-    def _get_stock_data(self, sym: str):
-        stock_data: Any = rh.stocks.get_quotes(sym)[0]  # type: ignore
+    def _get_stock_data(self, sym: str) -> StockData:
+        stock_data: Any = cast(dict, rh.stocks.get_quotes(sym))[0]
         return StockData(
             stock_data["ask_price"],
             stock_data["bid_price"],
             rh.stocks.get_latest_price(sym)[0],
-            rh.stocks.get_fundamentals(sym, info="volume")[0],  # type: ignore
+            cast(dict, rh.stocks.get_fundamentals(sym, info="volume"))[0],
         )
 
-    def _get_option_data(self, order: OptionOrder):
-        option_data: list[Any] = rh.find_options_by_expiration_and_strike(  # type: ignore
-            order.sym,
-            order.expiration,
-            str(order.strike),
-            order.option_type.value,
+    def _get_option_data(self, order: OptionOrder) -> OptionData:
+        option_data: list = cast(
+            list,
+            rh.find_options_by_expiration_and_strike(
+                order.sym,
+                order.expiration,
+                str(order.strike),
+                order.option_type.value,
+            ),
         )
         data = option_data[0]
         return OptionData(
@@ -326,36 +342,36 @@ class Robinhood(Broker):
             data["gamma"],
             data["vega"],
             data["rho"],
-            "",  # type: ignore # (RH does not provide underlying price)
-            "",  # type: ignore # (RH does not provide in the money status)
+            None,  # (RH does not provide underlying price)
+            None,  # (RH does not provide in the money status)
         )
 
     def _save_report(
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs
-    ):
+        **kwargs: Union[float, str]
+    ) -> None:
         self._add_report_to_file(
             ReportEntry(
                 program_submitted,
                 program_executed,
-                "",
+                None,
                 sym,
                 action_type,
-                kwargs["quantity"],
-                "",  # type: ignore # (RH price is added when generating report)
-                "",  # type: ignore # (RH dollar_amt is added when generating report)
+                cast(float, kwargs["quantity"]),
+                None,  # (RH price is added when generating report)
+                None,  # (RH dollar_amt is added when generating report)
                 pre_stock_data,
                 post_stock_data,
                 OrderType.MARKET,
                 False,
-                kwargs["order_id"],
-                "",
+                cast(str, kwargs["order_id"]),
+                None,
                 BrokerNames.RH,
             )
         )
@@ -365,29 +381,29 @@ class Robinhood(Broker):
         self,
         order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs
-    ):
+        **kwargs: str
+    ) -> None:
         self._add_option_report_to_file(
             OptionReportEntry(
                 program_submitted,
                 program_executed,
-                "",
+                None,
                 order.sym,
                 order.strike,
                 order.option_type,
                 order.expiration,
                 action_type,
-                "",  # type: ignore # (RH price is added when generating report)
+                None,  # (RH price is added when generating report)
                 pre_stock_data,
                 post_stock_data,
                 OrderType.LIMIT,  # (RH only allows limit orders for options)
-                "",
+                None,
                 kwargs["order_id"],
-                "",
+                None,
                 BrokerNames.RH,
             )
         )
@@ -398,11 +414,11 @@ class Robinhood(Broker):
         self,
         report_file: Path,
         broker_name: BrokerNames,
-        option_report_file: Path = None,
+        option_report_file: Optional[Path] = None,
     ):
         super().__init__(report_file, broker_name, option_report_file)
 
-    def login(self):
+    def login(self) -> None:
         """
         if changing the login credentials go to your (HOME_DIR)/.tokens and delete the robinhood.pickle file
         :return: None
@@ -410,7 +426,7 @@ class Robinhood(Broker):
         Robinhood.login_custom(account="RH2")
 
     @staticmethod
-    def login_custom(account="RH"):
+    def login_custom(account: str = "RH") -> None:
         account = account.upper()
         pickle_file = "1" if account == "RH" else "2"
         username = RH_LOGIN if account == "RH" else RH_LOGIN2
@@ -425,7 +441,7 @@ class Robinhood(Broker):
             pickle_name=pickle_file,
         )
 
-    def get_current_positions(self):
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         current_positions: list[StockOrder] = []
         positions = rh.account.build_holdings()
         for sym in positions:

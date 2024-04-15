@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
-from typing import Optional
+from typing import Any, Optional, Union, cast
 
-import tda.auth
-from tda.orders.equities import equity_buy_market, equity_sell_market
-from tda.orders.options import (
+import tda.auth  # type: ignore[import-untyped]
+from tda.orders.equities import equity_buy_market, equity_sell_market  # type: ignore[import-untyped]
+from tda.orders.options import (  # type: ignore[import-untyped]
     option_buy_to_open_market,
     option_sell_to_close_market,
     OptionSymbol,
@@ -37,7 +37,7 @@ class TDAmeritrade(Broker):
     ):
         super().__init__(report_file, broker_name, option_report_file)
 
-    def login(self):
+    def login(self) -> None:
         try:
             self._client = tda.auth.client_from_token_file(TD_TOKEN_PATH, TD_KEY)
         except:  # if the token is expired or some other issue try logging in using a browser
@@ -53,14 +53,17 @@ class TDAmeritrade(Broker):
     def _get_option_data(self, option: OptionOrder) -> OptionData:
         return MarketData.get_option_data(option)
 
-    def _get_latest_order(self):
-        return self._client.get_orders_by_path(
-            TD_ACC_NUM,
-            from_entered_datetime=datetime.now(),
-            to_entered_datetime=datetime.now() + timedelta(1),
-        ).json()[0]
+    def _get_latest_order(self) -> dict:
+        return cast(
+            dict,
+            self._client.get_orders_by_path(
+                TD_ACC_NUM,
+                from_entered_datetime=datetime.now(),
+                to_entered_datetime=datetime.now() + timedelta(1),
+            ).json()[0],
+        )
 
-    def buy(self, order: StockOrder):
+    def buy(self, order: StockOrder) -> None:
         ### PRE BUY INFO ###
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
@@ -85,7 +88,7 @@ class TDAmeritrade(Broker):
             post_stock_data,
         )
 
-    def sell(self, order: StockOrder):
+    def sell(self, order: StockOrder) -> None:
         ### PRE BUY INFO ###
         pre_stock_data = self._get_stock_data(order.sym)
         program_submitted = self._get_current_time()
@@ -110,7 +113,7 @@ class TDAmeritrade(Broker):
             post_stock_data,
         )
 
-    def buy_option(self, order: OptionOrder):
+    def buy_option(self, order: OptionOrder) -> None:
         ### PRE BUY INFO ###
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
@@ -135,7 +138,7 @@ class TDAmeritrade(Broker):
         )
         time.sleep(1)
 
-    def sell_option(self, order: OptionOrder):
+    def sell_option(self, order: OptionOrder) -> None:
         ### PRE SELL INFO ###
         pre_stock_data = self._get_option_data(order)
         program_submitted = self._get_current_time()
@@ -160,23 +163,23 @@ class TDAmeritrade(Broker):
         )
         time.sleep(1)
 
-    def _market_buy(self, order):
+    def _market_buy(self, order: StockOrder) -> None:
         self._client.place_order(
             TD_ACC_NUM, equity_buy_market(order.sym, order.quantity).build()
         )
 
-    def _market_sell(self, order):
+    def _market_sell(self, order: StockOrder) -> None:
         self._client.place_order(
             TD_ACC_NUM, equity_sell_market(order.sym, order.quantity).build()
         )
 
-    def _limit_buy(self, order):
+    def _limit_buy(self, order: StockOrder) -> Any:
         return NotImplementedError
 
-    def _limit_sell(self, order):
+    def _limit_sell(self, order: StockOrder) -> Any:
         return NotImplementedError
 
-    def _buy_call_option(self, order: OptionOrder):
+    def _buy_call_option(self, order: OptionOrder) -> None:
         sym = OptionSymbol(
             order.sym,
             datetime.strptime(order.expiration, "%Y-%m-%d"),
@@ -186,7 +189,7 @@ class TDAmeritrade(Broker):
 
         self._client.place_order(TD_ACC_NUM, option_buy_to_open_market(sym, 1).build())
 
-    def _sell_call_option(self, order: OptionOrder):
+    def _sell_call_option(self, order: OptionOrder) -> None:
         sym = OptionSymbol(
             order.sym,
             datetime.strptime(order.expiration, "%Y-%m-%d"),
@@ -198,22 +201,22 @@ class TDAmeritrade(Broker):
             TD_ACC_NUM, option_sell_to_close_market(sym, 1).build()
         )
 
-    def _buy_put_option(self, order: OptionOrder):
+    def _buy_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
-    def _sell_put_option(self, order: OptionOrder):
+    def _sell_put_option(self, order: OptionOrder) -> Any:
         return NotImplementedError
 
     def _save_report(
         self,
         sym: str,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs,
-    ):
+        **kwargs: Union[str, float],
+    ) -> None:
         order_data = self._get_latest_order()
 
         for activity in order_data["orderActivityCollection"]:
@@ -249,12 +252,12 @@ class TDAmeritrade(Broker):
         self,
         order: OptionOrder,
         action_type: ActionType,
-        program_submitted,
-        program_executed,
+        program_submitted: str,
+        program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs,
-    ):
+        **kwargs: str,
+    ) -> None:
         order_data = self._get_latest_order()
 
         for activity in order_data["orderActivityCollection"]:
@@ -287,7 +290,7 @@ class TDAmeritrade(Broker):
 
         self._save_option_report_to_file()
 
-    def get_current_positions(self):
+    def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         positions = self._client.get_account(
             TD_ACC_NUM, fields=[tda.client.Client.Account.Fields.POSITIONS]
         ).json()["securitiesAccount"]["positions"]
@@ -319,9 +322,9 @@ class TDAmeritrade(Broker):
 
         return current_positions, current_option_positions
 
-    def temp(self, id):
-        res = self._client.get_order(id, TD_ACC_NUM).json()
-        print(res)
+    # def temp(self, id):
+    #     res = self._client.get_order(id, TD_ACC_NUM).json()
+    #     print(res)
 
 
 if __name__ == "__main__":
