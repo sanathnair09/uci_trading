@@ -3,6 +3,7 @@ from pathlib import Path
 import time
 from typing import Any, Optional, Union, cast
 
+from loguru import logger
 import tda.auth  # type: ignore[import-untyped]
 from tda.orders.equities import equity_buy_market, equity_sell_market  # type: ignore[import-untyped]
 from tda.orders.options import (  # type: ignore[import-untyped]
@@ -218,35 +219,38 @@ class TDAmeritrade(Broker):
         **kwargs: Union[str, float],
     ) -> None:
         order_data = self._get_latest_order()
+        try:
+            for activity in order_data["orderActivityCollection"]:
+                TD_ct = activity["executionLegs"][0]["time"][11:]
+                TD_ct_hour = str(int(TD_ct[:2]) - 7)
+                if len(TD_ct_hour) == 1:
+                    TD_ct_hour = "0" + TD_ct_hour
+                broker_executed = TD_ct_hour + TD_ct[2:-5]
 
-        for activity in order_data["orderActivityCollection"]:
-            TD_ct = activity["executionLegs"][0]["time"][11:]
-            TD_ct_hour = str(int(TD_ct[:2]) - 7)
-            if len(TD_ct_hour) == 1:
-                TD_ct_hour = "0" + TD_ct_hour
-            broker_executed = TD_ct_hour + TD_ct[2:-5]
-
-            self._add_report_to_file(
-                ReportEntry(
-                    program_submitted,
-                    program_executed,
-                    broker_executed,
-                    sym,
-                    action_type,
-                    activity["quantity"],
-                    activity["executionLegs"][0]["price"],
-                    activity["quantity"] * activity["executionLegs"][0]["price"],
-                    pre_stock_data,
-                    post_stock_data,
-                    OrderType.MARKET,
-                    len(order_data["orderActivityCollection"]) > 1,
-                    order_data["orderId"],
-                    activity["activityId"],
-                    BrokerNames.TD,
+                self._add_report_to_file(
+                    ReportEntry(
+                        program_submitted,
+                        program_executed,
+                        broker_executed,
+                        sym,
+                        action_type,
+                        activity["quantity"],
+                        activity["executionLegs"][0]["price"],
+                        activity["quantity"] * activity["executionLegs"][0]["price"],
+                        pre_stock_data,
+                        post_stock_data,
+                        OrderType.MARKET,
+                        len(order_data["orderActivityCollection"]) > 1,
+                        order_data["orderId"],
+                        activity["activityId"],
+                        BrokerNames.TD,
+                    )
                 )
-            )
 
-        self._save_report_to_file()
+            self._save_report_to_file()
+        except:
+            logger.error("(TD) Error saving report")
+            logger.error(order_data)
 
     def _save_option_report(
         self,
@@ -259,36 +263,39 @@ class TDAmeritrade(Broker):
         **kwargs: str,
     ) -> None:
         order_data = self._get_latest_order()
+        try:
+            for activity in order_data["orderActivityCollection"]:
+                TD_ct = activity["executionLegs"][0]["time"][11:]
+                TD_ct_hour = str(int(TD_ct[:2]) - 7)
+                if len(TD_ct_hour) == 1:
+                    TD_ct_hour = "0" + TD_ct_hour
+                broker_executed = TD_ct_hour + TD_ct[2:-5]
 
-        for activity in order_data["orderActivityCollection"]:
-            TD_ct = activity["executionLegs"][0]["time"][11:]
-            TD_ct_hour = str(int(TD_ct[:2]) - 7)
-            if len(TD_ct_hour) == 1:
-                TD_ct_hour = "0" + TD_ct_hour
-            broker_executed = TD_ct_hour + TD_ct[2:-5]
-
-            self._add_option_report_to_file(
-                OptionReportEntry(
-                    program_submitted,
-                    program_executed,
-                    broker_executed,
-                    order.sym,
-                    order.strike,
-                    order.option_type,
-                    order.expiration,
-                    action_type,
-                    activity["executionLegs"][0]["price"],
-                    pre_stock_data,
-                    post_stock_data,
-                    OrderType.MARKET,
-                    order_data["destinationLinkName"],
-                    order_data["orderId"],
-                    activity["activityId"],
-                    BrokerNames.TD,
+                self._add_option_report_to_file(
+                    OptionReportEntry(
+                        program_submitted,
+                        program_executed,
+                        broker_executed,
+                        order.sym,
+                        order.strike,
+                        order.option_type,
+                        order.expiration,
+                        action_type,
+                        activity["executionLegs"][0]["price"],
+                        pre_stock_data,
+                        post_stock_data,
+                        OrderType.MARKET,
+                        order_data["destinationLinkName"],
+                        order_data["orderId"],
+                        activity["activityId"],
+                        BrokerNames.TD,
+                    )
                 )
-            )
 
-        self._save_option_report_to_file()
+            self._save_option_report_to_file()
+        except:
+            logger.error("(TD) Error saving option report")
+            logger.error(order_data)
 
     def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         positions = self._client.get_account(

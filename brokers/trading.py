@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 import schedule
 from loguru import logger
 
-from brokers import Robinhood, Fidelity, ETrade, TDAmeritrade, Schwab
+from brokers import Robinhood, Fidelity, ETrade, TDAmeritrade, Schwab, Vanguard, IBKR
 from utils.broker import Broker, OptionOrder, StockOrder
 from utils.market_data import MarketData
 from utils.program_manager import ProgramManager, SYM_LIST_LEN, SYM_LIST
@@ -50,6 +50,7 @@ class AutomatedTrading:
             Fidelity(report_file, BrokerNames.FD, option_report_file),
             # IBKR(report_file, BrokerNames.IF),
             Schwab(report_file, BrokerNames.SB, option_report_file),
+            Vanguard(report_file, BrokerNames.VD, option_report_file),
         ]
 
         self._fractionals = [0.1, 0.25, 0.5, 0.75, 0.9]
@@ -99,7 +100,7 @@ class AutomatedTrading:
         # need to subtract in the case when re-running on same day and already completed some trades
         count = SYM_LIST_LEN - self._manager.get_program_data("COMPLETED")
         option_idx = completed_options  # needed for array indexing
-
+        OPTN_LIST_LEN = len(self._options_list)
         SELL_TIME_LIMIT = datetime.now().replace(
             hour=12, minute=30, second=0, microsecond=0
         )
@@ -120,12 +121,12 @@ class AutomatedTrading:
             fractional = random.choice(self._fractionals)
 
             option = (
-                self._options_list[option_idx]
-                if 0 <= option_idx < len(self._options_list)
+                self._options_list[option_idx % OPTN_LIST_LEN]
+                if 0 <= option_idx < OPTN_LIST_LEN * 2
                 else None
             )
             if option:
-                logger.info(self._options_list[option_idx])
+                logger.info(self._options_list[option_idx % OPTN_LIST_LEN])
 
             schedule.every().day.at(buy_time.strftime("%H:%M")).do(
                 self._buy_across_brokers,
@@ -161,7 +162,7 @@ class AutomatedTrading:
             return
 
         if action == ActionType.CLOSE:
-            option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+            option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB", "VD"])
             for option in stock_list:
                 if not isinstance(option, OptionOrder):
                     logger.error("Invalid option order")
@@ -272,7 +273,7 @@ class AutomatedTrading:
 
         brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
         fractional_brokers = self._choose_brokers(["FD", "IF", "RH"])
-        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB", "VD"])
 
         # order_list = [StockOrder(sym, quantity, price, OrderType, limit), ...]
         orders = [
@@ -332,7 +333,7 @@ class AutomatedTrading:
 
         brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
         fractional_brokers = self._choose_brokers(["FD", "IF", "RH"])
-        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB"])
+        option_brokers = self._choose_brokers(["TD", "RH", "E2", "FD", "SB", "VD"])
 
         orders = parse_stock_string(
             self._manager.get_program_data("CURRENTLY_TRADING_STOCKS")
@@ -371,7 +372,6 @@ class AutomatedTrading:
         # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
-        processor.optimized_generate_report(f"reports/original/report_04_03.csv")
 
     @staticmethod
     def generate_option_report(*, version: int = 0) -> None:

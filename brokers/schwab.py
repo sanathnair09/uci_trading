@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 import time
 from datetime import datetime
@@ -264,6 +265,7 @@ class Schwab(Broker):
         """
         self._chrome_inst.open("https://client.schwab.com/app/accounts/positions/#/")
         positions: list[StockOrder] = []
+        option_positions: list[OptionOrder] = []
         try:
             time.sleep(5)
             page_source = self._chrome_inst.get_page_source()
@@ -271,12 +273,32 @@ class Schwab(Broker):
             df = dfs[0]
             df = df[["Symbol", "Quantity"]].drop(df.index[[-1, -2]])
             temp = df.to_numpy()
-            positions = [StockOrder(x[0], float(x[1])) for x in temp]
+            for sym, quantity in temp:
+                if not math.isnan(quantity):
+                    parts = sym.split(" ")
+                    if len(parts) > 1:
+                        option_type = (
+                            OptionType.CALL if parts[3] == "C" else OptionType.PUT
+                        )
+                        expiration = datetime.strptime(parts[1], "%m/%d/%Y").strftime(
+                            "%Y-%m-%d"
+                        )
+                        option_positions.append(
+                            OptionOrder(
+                                parts[0],
+                                option_type,
+                                parts[2],
+                                expiration,
+                                OrderType.MARKET,
+                            )
+                        )
+                    else:
+                        positions.append(StockOrder(sym, float(quantity)))
         except Exception as e:
             print("Error getting current positions", e)
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/#/trade")
         time.sleep(3)
-        return positions, []
+        return positions, option_positions
 
     def buy_option(self, order: OptionOrder) -> None:
         pre_stock_data = self._get_option_data(order)

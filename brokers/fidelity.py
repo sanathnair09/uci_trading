@@ -25,6 +25,7 @@ from utils.report.report import (
     OptionData,
 )
 from utils.selenium_helper import CustomChromeInstance
+from utils.util import convert_date
 
 
 #
@@ -287,69 +288,29 @@ class Fidelity(Broker):
                 '//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[3]/div/input[2]',
             ).click()
 
-    def _convert_date(self, date_str: str) -> str:
-        # Convert the month name to its corresponding number
-        month_dict = {
-            "Jan": 1,
-            "Feb": 2,
-            "Mar": 3,
-            "Apr": 4,
-            "May": 5,
-            "Jun": 6,
-            "Jul": 7,
-            "Aug": 8,
-            "Sep": 9,
-            "Oct": 10,
-            "Nov": 11,
-            "Dec": 12,
-        }
-
-        # Split the date string into its components
-        month_name, day, year = date_str.split()
-
-        # Convert month name to its corresponding number
-        month = month_dict[month_name]
-
-        # Format the date as YYYY-MM-DD
-        formatted_date = datetime(int(year), month, int(day[:-1])).strftime("%Y-%m-%d")
-
-        return formatted_date
-
     def _set_option_expiration(self, expiration_date: str) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="exp_dropdown"]')
         dropdown.click()
         time.sleep(1)
-        idx = 0
-        while idx < 15:
-            try:
-                content = self._chrome_inst.find(
-                    By.XPATH, f'//*[@id="dest-expiration-{idx}"]/span'
-                )
-                if self._convert_date(content.text) == expiration_date:
-                    content.click()
-            except:
-                pass
-            idx += 1
+        date = convert_date(expiration_date, "%b %d, %Y")
+        expiration_entry = self._chrome_inst.find(
+            By.XPATH,
+            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[4]/div/div/button/span[contains(text(), "{date}")]',
+        )
+        self._chrome_inst.scroll_to_element(expiration_entry)
+        expiration_entry.click()
         time.sleep(2)
 
     def _set_strike_price(self, strike: str) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="strike_dropdown"]')
         dropdown.click()
         time.sleep(1)
-        idx = 1
-        while idx < 1000:
-            try:
-                content = self._chrome_inst.find(
-                    By.XPATH,
-                    f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[{idx}]',
-                )
-                formatted_text = content.text
-                if formatted_text == str(strike):
-                    content.click()
-                    return
-            except:
-                pass
-            idx += 1
+        strike_entry = self._chrome_inst.find(
+            By.XPATH,
+            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[contains(text(), "{strike}")]',
+        )
+        self._chrome_inst.scroll_to_element(strike_entry)
+        strike_entry.click()
 
     def _set_option_order_type(self) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="orderType_dropdown"]')

@@ -9,6 +9,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
+import undetected_chromedriver as uc  # type: ignore[import-untyped]
 
 from brokers import BASE_PATH
 
@@ -36,31 +37,29 @@ class CustomChromeInstance:
         # options.add_experimental_option("useAutomationExtension", False)
         return webdriver.Chrome(options=options)
 
-    def __init__(self) -> None:
+    def __init__(self, undetected: bool = False) -> None:
         # Create Chromeoptions instance
         options = webdriver.ChromeOptions()
         options.add_argument("--log-level=3")
         options.add_argument("--start-maximized")
         # Adding argument to disable the AutomationControlled flag
         options.add_argument("--disable-blink-features=AutomationControlled")
+        if not undetected:
+            # Exclude the collection of enable-automation switches
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-        # Exclude the collection of enable-automation switches
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            prefs = {
+                "credentials_enable_service": False,
+                "profile.password_manager_enabled": False,
+                "download.default_directory": str(BASE_PATH / "data"),
+            }
 
-        prefs = {
-            "credentials_enable_service": False,
-            "profile.password_manager_enabled": False,
-            "download.default_directory": str(BASE_PATH / "data"),
-        }
+            options.add_experimental_option("prefs", prefs)
+            self._driver = webdriver.Chrome(service=Service(), options=options)
+        else:
+            self._driver = uc.Chrome(options=options)
 
-        options.add_experimental_option("prefs", prefs)
-
-        # Turn-off userAutomationExtension
-        # options.add_experimental_option("useAutomationExtension", False)
-        self._driver = webdriver.Chrome(service=Service(), options=options)
         self._actions = ActionChains(self._driver)
-        # print(self._driver.service.path)
-        # self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
     def open(self, page: str) -> None:
         self._driver.get(page)
@@ -95,6 +94,9 @@ class CustomChromeInstance:
 
     def scroll(self, amount: int) -> None:
         self._actions.scroll_by_amount(0, amount).perform()
+
+    def scroll_to_element(self, elem: WebElement) -> None:
+        self._actions.move_to_element(elem).perform()
 
     def sendKeys(self, keys: str) -> None:
         self._actions.send_keys(keys).perform()

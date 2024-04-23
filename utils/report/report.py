@@ -2,9 +2,13 @@ from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, TypeVar, Union
 
-from utils.util import check_none
+T = TypeVar("T")
+
+
+def check_none(value: T) -> Union[T, str]:
+    return value if value is None else ""
 
 
 class ActionType(Enum):
@@ -93,7 +97,7 @@ class OptionReportEntry:
     program_executed: str  # time after placing order
     broker_executed: Optional[str]  # time executed according to broker info
     sym: str  # symbol
-    strike: Union[float, str]
+    strike: str
     option_type: OptionType  # Call or Put
     expiration: str
     action: ActionType  # Buy or Sell
@@ -107,7 +111,7 @@ class OptionReportEntry:
     broker: BrokerNames
 
     def __str__(self) -> str:
-        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
+        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.strike},{self.option_type.value[0].upper()},{self.expiration},1,{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
 
 
 def format_quote_data(pre: StockData, post: StockData) -> str:

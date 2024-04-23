@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+import math
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -184,6 +185,24 @@ class Broker(ABC):
     @abstractmethod
     def _sell_put_option(self, order: OptionOrder) -> Union[str, dict, None]:
         pass
+
+    def _handle_option_tick_size(self, action: ActionType, price: float) -> float:
+        return self._round_to_nearest(action, price, 0.05)
+
+    def _round_to_nearest(
+        self, action: ActionType, price: float, nearest: float
+    ) -> float:
+        if price / nearest >= 1:
+            return round(
+                (
+                    math.ceil(price / nearest) * nearest
+                    if action == ActionType.OPEN
+                    else math.floor(price / nearest) * nearest
+                ),
+                2,
+            )
+        else:
+            return price
 
     @abstractmethod
     def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:

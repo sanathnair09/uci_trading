@@ -88,11 +88,8 @@ def get_robinhood_option_data(row: pd.Series) -> pd.Series:
     pst = now_aware.astimezone(timezone("US/Pacific"))
     row["Broker Executed"] = pst.strftime("%I:%M:%S")
     price = float(order_data["legs"][0]["executions"][0]["price"])
-    size = float(order_data["legs"][0]["executions"][0]["quantity"])
 
     row["Price"] = price
-    row["Size"] = size
-    row["Dollar Amt"] = price * size * 100
     return row
 
 

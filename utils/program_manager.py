@@ -30,18 +30,22 @@ SYM_LIST = [
 
 SYM_LIST_LEN = len(SYM_LIST)
 
-REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
-                  'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
-                  'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
-                  'Order Type', 'Split', 'Order ID', 'Activity ID']
+REPORT_COLUMNS = [
+    'Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
+    'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
+    'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
+    'Order Type', 'Split', 'Order ID', 'Activity ID'
+    ]
 
-OPTION_REPORT_COLUMNS = ['Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
-                         'Broker', 'Action', 'Price', 'Pre Quote', 'Post Quote',
-                         'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
-                         "Pre Volatility", "Post Volatility", "Pre Delta", "Post Delta", "Pre Theta", "Post Theta",
-                         "Pre Gamma", "Post Gamma", "Pre Vega", "Post Vega", "Pre Rho", "Post Rho",
-                        "Pre Underlying Price", "Post Underlying Price", "Pre In The Money", "Post In The Money",
-                         'Order Type', "Venue", 'Order ID', 'Activity ID',]
+OPTION_REPORT_COLUMNS = [
+    'Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
+    'Strike','Option Type', 'Expiration', 'Trade Size', 'Broker', 'Action', 'Price',
+    'Pre Quote', 'Post Quote', 'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume',
+    'Post Volume', "Pre Volatility", "Post Volatility", "Pre Delta", "Post Delta", "Pre Theta",
+    "Post Theta", "Pre Gamma", "Post Gamma", "Pre Vega", "Post Vega", "Pre Rho", "Post Rho",
+    "Pre Underlying Price", "Post Underlying Price", "Pre In The Money", "Post In The Money",
+    'Order Type', "Venue", 'Order ID', 'Activity ID'
+    ]
 
 
 # fmt: on
@@ -63,7 +67,7 @@ class ProgramManager:
             "PREVIOUS_STOCK_NAME": random.choice(SYM_LIST),
             "STATUS": "Buy",
             "CURRENTLY_TRADING_STOCKS": [],
-            "CURRENTLY_TRADING_OPTION": "",
+            "CURRENTLY_TRADING_OPTION": [],
             "CURRENT_BIG_TRADES": [],
             "CURRENT_FRACTIONAL_TRADES": [],
             "COMPLETED": 0,

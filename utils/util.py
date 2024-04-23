@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, Optional, TypeVar, Union, no_type_check
+from typing import Optional, no_type_check
 from utils.broker import OptionOrder, StockOrder
 
 from utils.report.report import OptionType, OrderType
@@ -97,11 +97,13 @@ def parse_stock_string(stock_string: str) -> list[StockOrder]:
     return res
 
 
-T = TypeVar("T")
+def convert_date(date_str: str, format: str) -> str:
+    date_object = datetime.strptime(date_str, "%Y-%m-%d")
 
+    # Format the date to MMM DD, YYYY
+    formatted_date = date_object.strftime(format)
 
-def check_none(value: T) -> Union[T, str]:
-    return value if value is None else ""
+    return formatted_date
 
 
 if __name__ == "__main__":

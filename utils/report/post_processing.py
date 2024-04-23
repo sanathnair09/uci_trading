@@ -84,10 +84,11 @@ class PostProcessing:
                 row["Broker Executed"] = convert_int64_utc_to_pst(
                     split["Broker Executed"]
                 )
-                row["Size"] = split["Size"]
                 row["Price"] = split["Price"]
-                row["Dollar Amt"] = split["Dollar Amt"]
-                row["Split"] = is_split
+                if not option:
+                    row["Size"] = split["Size"]
+                    row["Dollar Amt"] = split["Dollar Amt"]
+                    row["Split"] = is_split
                 new_ets = pd.concat([new_ets, row.to_frame().T], ignore_index=False)
         df = pd.concat([df, new_ets], ignore_index=False)
         return df
@@ -118,7 +119,7 @@ class PostProcessing:
 
         return ibkr_df, fidelity_df, schwab_df
 
-    def optimized_generate_report(self, report_file: str) -> None:
+    def generate_report(self, report_file: str) -> None:
         logger.info(f"Processing: {report_file}")
         print("---START---")
         start = time.perf_counter()
@@ -356,15 +357,15 @@ class PostProcessing:
 
             if report_row.shape[0]:
                 if report_row.shape[0] > 1:
-                    report_row = report_row[
+                    report_row_new = report_row[
                         report_row["Program Submitted"].str.slice(0, 2)
                         == row["Broker Executed"][0:2]
                     ]
-                report_row["Broker Executed"] = row["Broker Executed"]
-                report_row["Size"] = row["Size"]
-                report_row["Price"] = row["Price"]
-                report_row["Dollar Amt"] = row["Dollar Amt"]
-                fd_options = pd.concat([fd_options, report_row], ignore_index=True)
+                else:
+                    report_row_new = report_row
+                report_row_new["Broker Executed"] = row["Broker Executed"]
+                report_row_new["Price"] = row["Price"]
+                fd_options = pd.concat([fd_options, report_row_new], ignore_index=True)
 
         logger.info("Processing FD")
         for _, row in fidelity_df.iterrows():
@@ -390,10 +391,15 @@ class PostProcessing:
 
         df = self._format_df_dates(df)
 
+        price_idx = cast(int, df.columns.get_loc("Price"))
+        df.insert(price_idx + 1, "Dollar Amt", "")
+        df["Dollar Amt"] = df["Trade Size"] * df["Price"] * 100
+
         filtered_filename = (
             BASE_PATH
             / f'reports/filtered/option_report_{formatted_date.strftime("%m_%d")}_filtered{self._output_file_version}.csv'
         )
+        df.fillna("", inplace=True)
         df.to_csv(filtered_filename, index=False)
 
         end = time.perf_counter()

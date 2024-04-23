@@ -81,7 +81,7 @@ class ETrade(Broker):
         add an input statement on line 53 and then check the XPATH and change if needed.
         :return:
         """
-        chrome_inst = CustomChromeInstance.createInstance()
+        # chrome_inst = CustomChromeInstance.createInstance()
         tokens = {}
         try:
             oauth = pyetrade.ETradeOAuth(self._consumer_key, self._consumer_secret)
@@ -110,7 +110,7 @@ class ETrade(Broker):
             # )
             # tokens = oauth.get_access_token(code.get_attribute("value"))
         except Exception as e:
-            chrome_inst.quit()
+            # chrome_inst.quit()
             logger.error("Error logging in automatically. Trying Manually...")
             # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key, self._consumer_secret)
@@ -140,7 +140,7 @@ class ETrade(Broker):
                 tokens["oauth_token_secret"],
                 dev=False,
             )
-            chrome_inst.quit()
+            # chrome_inst.quit()
 
     def _get_stock_data(self, sym: str) -> StockData:
         quote = self._market.get_quote([sym], resp_format="json")["QuoteResponse"][
@@ -406,7 +406,7 @@ class ETrade(Broker):
             pair = (
                 pair["Call"] if option.option_type == OptionType.CALL else pair["Put"]
             )
-            if pair["strikePrice"] == str(option.strike):
+            if float(pair["strikePrice"]) == float(option.strike):
                 return OptionData(
                     pair["ask"],
                     pair["bid"],
@@ -450,7 +450,7 @@ class ETrade(Broker):
                 OrderType.MARKET,
                 False,
                 order_data.orderId,
-                "",  # (etrade doesn't have activity id)
+                None,  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
@@ -483,9 +483,9 @@ class ETrade(Broker):
                 pre_stock_data,
                 post_stock_data,
                 OrderType.MARKET,
-                "",
+                None,
                 order_data.orderId,
-                "",  # (etrade doesn't have activity id)
+                None,  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
@@ -562,5 +562,4 @@ class ETrade(Broker):
 if __name__ == "__main__":
     et = ETrade(Path("temp.csv"), BrokerNames.E2, Path("temp_option.csv"))
     et.login()
-    print(et.get_current_positions())
     pass
