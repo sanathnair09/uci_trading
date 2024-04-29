@@ -8,7 +8,7 @@ T = TypeVar("T")
 
 
 def check_none(value: T) -> Union[T, str]:
-    return value if value is None else ""
+    return value if value is not None else ""
 
 
 class ActionType(Enum):

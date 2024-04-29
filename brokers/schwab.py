@@ -271,7 +271,7 @@ class Schwab(Broker):
             page_source = self._chrome_inst.get_page_source()
             dfs = pd.read_html(StringIO(page_source))
             df = dfs[0]
-            df = df[["Symbol", "Quantity"]].drop(df.index[[-1, -2]])
+            df = df[["Symbol", "Quantity sort ascending"]].drop(df.index[[-1, -2]])
             temp = df.to_numpy()
             for sym, quantity in temp:
                 if not math.isnan(quantity):

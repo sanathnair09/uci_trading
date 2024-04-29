@@ -512,12 +512,39 @@ class Fidelity(Broker):
             BASE_PATH
             / f'data/Portfolio_Positions_{datetime.now().strftime("%b-%d-%Y")}.csv'
         )
+
+        positions: list[StockOrder] = []
+        option_positions: list[OptionOrder] = []
+
         df = pd.read_csv(file)
         df = df.drop(df.index[[0, -1, -2, -3, -4]])  # only keep rows with stock info
-        positions = [
-            StockOrder(sym, quantity)
-            for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()
-        ]
+        for _, row in df.iterrows():
+            if "-" in row["Symbol"]:
+                #  -BX240426C121
+                year = datetime.now().year
+                year_start = row["Symbol"].find(
+                    str(year)[2:]
+                )  # last two digits of year
+                expiration = row["Symbol"][year_start : year_start + 6]
+                sym = row["Symbol"][2:year_start]
+                option_type = (
+                    OptionType.CALL
+                    if "C" == row["Symbol"][year_start + 6 : year_start + 7]
+                    else OptionType.PUT
+                )
+                strike = row["Symbol"][year_start + 7 :]
+                if "." not in strike:
+                    strike = f"{strike}.00"
+                option_positions.append(
+                    OptionOrder(
+                        sym,
+                        option_type,
+                        strike,
+                        datetime.strptime(expiration, "%y%m%d").strftime("%Y-%m-%d"),
+                    )
+                )
+            else:
+                positions.append(StockOrder(row["Symbol"], row["Quantity"]))
         self._chrome_inst.open(
             "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
         )
@@ -527,7 +554,7 @@ class Fidelity(Broker):
 
         os.remove(file)
 
-        return positions, []
+        return positions, option_positions
 
     def get_trade_data(self) -> pd.DataFrame:
         """
@@ -549,7 +576,7 @@ class Fidelity(Broker):
         try:  # super sus
 
             def get_xpath(row: int) -> str:
-                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/account-activity-container/div/div[2]/activity-list[1]/div/div[3]/div[{row}]/div/div[1]'
+                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/account-activity-container/div/div[2]/activity-list[1]/div[2]/div[2]/div[{row}]/div/div[1]/div'
 
             x = 1
             while True:
