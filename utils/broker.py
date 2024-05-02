@@ -55,7 +55,7 @@ class StockOrder:
     order_type: OrderType = OrderType.MARKET
 
     def __str__(self) -> str:
-        return f"{self.sym},{self.quantity},{self.price},{self.order_type}"
+        return f"{self.sym},{self.quantity},{self.price}"
 
 
 @dataclass

@@ -87,13 +87,8 @@ def parse_stock_string(stock_string: str) -> list[StockOrder]:
         return []
     res: list[StockOrder] = []
     for part in parts:
-        sym, quantity, price, order_type_str = part.split(",")
-        order_type = (
-            OrderType.MARKET
-            if order_type_str == "OrderType.MARKET"
-            else OrderType.LIMIT
-        )
-        res.append(StockOrder(sym, float(quantity), float(price), order_type))
+        sym, quantity, price = part.split(",")
+        res.append(StockOrder(sym, float(quantity), float(price)))
     return res
 
 
@@ -107,4 +102,4 @@ def convert_date(date_str: str, format: str) -> str:
 
 
 if __name__ == "__main__":
-    pass
+    print(format_list_of_orders([StockOrder("AAPL", 1, 1), StockOrder("MSFT", 1, 1)]))

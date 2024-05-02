@@ -1,4 +1,4 @@
-import json
+import ujson as json
 from pathlib import Path
 import sys
 from datetime import datetime
@@ -74,32 +74,32 @@ class ProgramManager:
             "COMPLETED_OPTIONS": 0,
         }
 
-        self._initialize_files()
         self._init_logging()
+        self._initialize_files()
 
     def _initialize_files(self) -> None:
         if not self._program_info_path.exists():
-            print("Creating program file...")
+            logger.info("Creating program file...")
             with open(self._program_info_path, "w+") as file:
                 json.dump(self._default_values, file, indent=4)
-            print("Finished creating program file...")
+            logger.info("Finished creating program file...")
         else:
             with open(self._program_info_path, "r+") as file:
                 data = json.load(file)
                 if data.keys() != self._default_values.keys():
-                    print("Updating program file...")
+                    logger.info("Updating program file...")
                     new_data = self._default_values | data
                     file.truncate(0)  # clears file
                     file.seek(0)  # moves pointer to beginning
                     json.dump(new_data, file, indent=4)
-                    print("Finished updating program file...")
+                    logger.info("Finished updating program file...")
 
         def create_file(file: Path, report_columns: list[str], msg: str) -> None:
             if not file.exists():
-                print(f"Creating {msg} file...")
+                logger.info(f"Creating {msg} file...")
                 with open(file, "w") as f:
                     f.write(",".join(report_columns) + "\n")
-                    print(f"Finished creating {msg} file...")
+                    logger.info(f"Finished creating {msg} file...")
 
         create_file(self.report_file, REPORT_COLUMNS, "report")
         create_file(self.option_report_file, OPTION_REPORT_COLUMNS, "option report")

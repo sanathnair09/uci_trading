@@ -1,5 +1,5 @@
 from datetime import datetime
-import json
+import ujson as json
 from pathlib import Path
 import shutil
 
@@ -9,17 +9,17 @@ from utils.program_manager import ProgramManager
 
 class TestProgramManager:
     @pytest.fixture()
-    def expected_keys(self):
+    def expected(self):
         return {
-            "DATE",
-            "PREVIOUS_STOCK_NAME",
-            "STATUS",
-            "CURRENTLY_TRADING_STOCKS",
-            "CURRENTLY_TRADING_OPTION",
-            "CURRENT_BIG_TRADES",
-            "CURRENT_FRACTIONAL_TRADES",
-            "COMPLETED",
-            "COMPLETED_OPTIONS",
+            "DATE": str,
+            "PREVIOUS_STOCK_NAME": str,
+            "STATUS": str,
+            "CURRENTLY_TRADING_STOCKS": list,
+            "CURRENTLY_TRADING_OPTION": list,
+            "CURRENT_BIG_TRADES": list,
+            "CURRENT_FRACTIONAL_TRADES": list,
+            "COMPLETED": int,
+            "COMPLETED_OPTIONS": int,
         }
 
     @pytest.fixture()
@@ -34,7 +34,7 @@ class TestProgramManager:
         curr_dir.mkdir(parents=True, exist_ok=True)
         (curr_dir / "logs").mkdir(parents=True, exist_ok=True)
         (curr_dir / "reports/original").mkdir(parents=True, exist_ok=True)
-        yield
+        yield  # let test run
         # delete all files in tmp directory
         shutil.rmtree(curr_dir)
 
@@ -61,27 +61,25 @@ class TestProgramManager:
         assert report_file.exists()
         assert option_report_file.exists()
 
-    def test_program_manager_program_info_file_content(
-        self, program_manager, expected_keys
-    ):
+    def test_program_manager_program_info_file_content(self, program_manager, expected):
         _, manager = program_manager
 
         with open(manager._program_info_path, "r") as file:
             data = json.load(file)
-            assert all(key in expected_keys for key in data.keys())
+            print(data)
+            for key, value in data.items():
+                print(key, value, expected[key])
+                if key in expected:
+                    assert type(value) == expected[key]
 
-            expected_value_type = [str, str, str, list, str, list, list, int, int]
-            for idx, value in enumerate(data.values()):
-                assert isinstance(value, expected_value_type[idx])
-
-    def test_program_manager_update_program_info_file(self, expected_keys):
+    def test_program_manager_update_program_info_file(self, expected):
         curr_dir = Path(__file__).parent / "tmp"
 
         incomplete_data = {
             "DATE": datetime.now().strftime("%x"),
             "STATUS": "Buy",
             "CURRENTLY_TRADING_STOCKS": [],
-            "CURRENTLY_TRADING_OPTION": "",
+            "CURRENTLY_TRADING_OPTION": [],
             "CURRENT_BIG_TRADES": [],
             "CURRENT_FRACTIONAL_TRADES": [],
             "COMPLETED": 0,
@@ -93,7 +91,7 @@ class TestProgramManager:
         manager = ProgramManager(base_path=curr_dir)
 
         self.test_program_manager_program_info_file_content(
-            (curr_dir, manager), expected_keys
+            (curr_dir, manager), expected
         )
 
     def test_program_manager_get_valid_data(self, program_manager):
