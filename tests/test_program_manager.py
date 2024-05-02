@@ -1,9 +1,10 @@
-from datetime import datetime
-import ujson as json
-from pathlib import Path
 import shutil
+from datetime import datetime
+from pathlib import Path
 
 import pytest
+import ujson as json
+
 from utils.program_manager import ProgramManager
 
 
@@ -14,10 +15,10 @@ class TestProgramManager:
             "DATE": str,
             "PREVIOUS_STOCK_NAME": str,
             "STATUS": str,
-            "CURRENTLY_TRADING_STOCKS": list,
-            "CURRENTLY_TRADING_OPTION": list,
+            "STOCKS": list,
+            "OPTIONS": list,
             "CURRENT_BIG_TRADES": list,
-            "CURRENT_FRACTIONAL_TRADES": list,
+            "FRACTIONALS": list,
             "COMPLETED": int,
             "COMPLETED_OPTIONS": int,
         }
@@ -66,9 +67,7 @@ class TestProgramManager:
 
         with open(manager._program_info_path, "r") as file:
             data = json.load(file)
-            print(data)
             for key, value in data.items():
-                print(key, value, expected[key])
                 if key in expected:
                     assert type(value) == expected[key]
 
@@ -78,10 +77,10 @@ class TestProgramManager:
         incomplete_data = {
             "DATE": datetime.now().strftime("%x"),
             "STATUS": "Buy",
-            "CURRENTLY_TRADING_STOCKS": [],
-            "CURRENTLY_TRADING_OPTION": [],
+            "STOCKS": [],
+            "OPTIONS": [],
             "CURRENT_BIG_TRADES": [],
-            "CURRENT_FRACTIONAL_TRADES": [],
+            "FRACTIONALS": [],
             "COMPLETED": 0,
             "COMPLETED_OPTIONS": 0,
         }
@@ -98,31 +97,31 @@ class TestProgramManager:
         _, manager = program_manager
 
         # only testing "Status", "Completed", "Completed Options"
-        assert manager.get_program_data("STATUS") == "Buy"
-        assert manager.get_program_data("COMPLETED") == 0
-        assert manager.get_program_data("COMPLETED_OPTIONS") == 0
+        assert manager.get("STATUS") == "Buy"
+        assert manager.get("COMPLETED") == 0
+        assert manager.get("COMPLETED_OPTIONS") == 0
 
     def test_program_manager_get_invalid_data(self, program_manager):
         _, manager = program_manager
 
         with pytest.raises(KeyError) as error:
-            manager.get_program_data("INVALID_KEY")
+            manager.get("INVALID_KEY")
 
     def test_program_manager_update_data_for_valid_key(self, program_manager):
         _, manager = program_manager
 
         # only testing "Status", "Completed", "Completed Options"
-        manager.update_program_data("STATUS", "Sell")
-        assert manager.get_program_data("STATUS") == "Sell"
+        manager.set("STATUS", "Sell")
+        assert manager.get("STATUS") == "Sell"
 
-        manager.update_program_data("COMPLETED", 1)
-        assert manager.get_program_data("COMPLETED") == 1
+        manager.set("COMPLETED", 1)
+        assert manager.get("COMPLETED") == 1
 
-        manager.update_program_data("COMPLETED_OPTIONS", 1)
-        assert manager.get_program_data("COMPLETED_OPTIONS") == 1
+        manager.set("COMPLETED_OPTIONS", 1)
+        assert manager.get("COMPLETED_OPTIONS") == 1
 
     def test_program_manager_update_data_for_invalid_key(self, program_manager):
         _, manager = program_manager
 
         with pytest.raises(KeyError) as error:
-            manager.update_program_data("INVALID_KEY", "Sell")
+            manager.set("INVALID_KEY", "Sell")

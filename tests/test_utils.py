@@ -1,10 +1,16 @@
 from unittest.mock import patch
+from utils.broker import OptionOrder, StockOrder
 from utils.report.report import OptionType, OrderType
 from utils.util import (
     calculate_num_stocks_to_buy,
     convert_to_float,
-    parse_option_string,
     process_option_input,
+    parse_option_string,
+    parse_option_list,
+    format_list_of_orders,
+    parse_stock_string,
+    parse_stock_list,
+    convert_date,
 )
 
 
@@ -82,13 +88,11 @@ class TestUtils:
         assert res.strike == "100.55"
         assert res.expiration == "2022-01-01"
 
-    # @patch("builtins.input", return_value="")
     def test_process_empty_option_input(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "")
         res = process_option_input()
         assert len(res) == 0
 
-    # @patch("builtins.input", return_value="AAPL-Call-100-01/01/2022")
     def test_process_option_input(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "AAPL-Call-100-01/01/2022")
         res = process_option_input()
@@ -100,3 +104,31 @@ class TestUtils:
         assert option.option_type == OptionType.CALL
         assert option.strike == "100"
         assert option.expiration == "2022-01-01"
+
+    def test_format_list_of_orders(self):
+        res = format_list_of_orders(
+            [StockOrder("AAPL", 1.0, 1.0), StockOrder("MSFT", 1.25, 1)]
+        )
+        assert res == ["AAPL,1.0,1.0", "MSFT,1.25,1"]
+
+    def test_parse_stock_list(self):
+        assert parse_stock_list([]) == []
+        res = parse_stock_list(["AAPL,1.0,1.0", "MSFT,1.25,1"])
+        assert len(res) == 2
+        assert res == [
+            StockOrder("AAPL", 1.0, 1.0),
+            StockOrder("MSFT", 1.25, 1),
+        ]
+
+    def test_parse_option_list(self):
+        assert parse_option_list([]) == []
+        res = parse_option_list(["AAPL-Call-100-01/01/2022", "MSFT-Put-100-01/01/2022"])
+        assert len(res) == 2
+        assert res == [
+            OptionOrder("AAPL", OptionType.CALL, "100", "2022-01-01", OrderType.MARKET),
+            OptionOrder("MSFT", OptionType.PUT, "100", "2022-01-01", OrderType.MARKET),
+        ]
+
+    def test_convert_date(self):
+        assert convert_date("2022-01-01", "%m/%d/%Y") == "01/01/2022"
+        assert convert_date("2022-01-01", "%Y-%m-%d") == "2022-01-01"

@@ -66,10 +66,10 @@ class ProgramManager:
             # if creating a new file choose a random starting point
             "PREVIOUS_STOCK_NAME": random.choice(SYM_LIST),
             "STATUS": "Buy",
-            "CURRENTLY_TRADING_STOCKS": [],
-            "CURRENTLY_TRADING_OPTION": [],
+            "STOCKS": [],
+            "OPTIONS": [],
+            "FRACTIONALS": [],
             "CURRENT_BIG_TRADES": [],
-            "CURRENT_FRACTIONAL_TRADES": [],
             "COMPLETED": 0,
             "COMPLETED_OPTIONS": 0,
         }
@@ -128,7 +128,7 @@ class ProgramManager:
                 f"{key} not a valid key: {list(self._default_values.keys())}"
             )
 
-    def update_program_data(self, key: str, value: Union[str, list, int]) -> None:
+    def set(self, key: str, value: Union[str, list, int]) -> None:
         self._check_valid_key(key)
         with open(self._program_info_path, "r") as file:
             data = json.load(file)
@@ -137,7 +137,7 @@ class ProgramManager:
         with open(self._program_info_path, "w") as file:
             json.dump(data, file, indent=4)
 
-    def get_program_data(self, key: str) -> Any:
+    def get(self, key: str) -> Any:
         self._check_valid_key(key)
         with open(self._program_info_path, "r") as file:
             return json.load(file)[key]
