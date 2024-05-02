@@ -369,7 +369,6 @@ class AutomatedTrading:
 
     @staticmethod
     def generate_report(*, version: int = 0) -> None:
-        # TODO: make sure to download fidelity data at end of each day
         processor = PostProcessing(version)
         # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
 

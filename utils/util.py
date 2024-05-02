@@ -63,12 +63,12 @@ def process_option_input() -> list[OptionOrder]:
     return orders
 
 
-def parse_option_string(option_string: str) -> Optional[OptionOrder]:
+def parse_option_string(option_string: str) -> OptionOrder:
     """
     SYM-Call/Put-STRIKE-MM/DD/YYYY
     """
     if option_string == "":
-        return None
+        raise ValueError("Empty string")
     sym, option_type_str, strike, expiration_str = option_string.split("-")
     option_type = (
         OptionType.CALL if option_type_str.upper() == "CALL" else OptionType.PUT
