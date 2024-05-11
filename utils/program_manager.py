@@ -16,7 +16,7 @@ SYM_LIST = [
     "PFMT", "QUAD", "NNBR", "TSLA", "LASE", "APLS", "BYNO", "SCKT", "AVO", "TRIP",
     "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC",  # removed "WH" 2/15/24
     "NEON", "NTAP", "PXLW", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW",
-    "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "COSM", "MSFT", "VNDA",
+    "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "RMTI", "MSFT", "VNDA",
     "NXTC", "EW", "ADRT", "CAL", "GIS", "NVDA", "GLT", "GBCI", "RCKT", "HONE",
     "AMPS", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
     "BAC", "ROOT", "JNPR", "UNF", "TRV", "AMTB", "TDG", "V", "ASB", "MSI",
