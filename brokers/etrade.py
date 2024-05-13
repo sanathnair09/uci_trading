@@ -153,18 +153,11 @@ class ETrade(Broker):
             float(quote["All"]["totalVolume"]),
         )
 
-    def get_order_data(
-        self, orderId: str, sym: str, date: str
-    ) -> tuple[pd.DataFrame, bool]:
-        date_object = datetime.strptime(date, r"%m/%d/%y")
-        fromDate = date_object.strftime(r"%m%d%Y")
+    def get_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
-            symbol=sym,
-            fromDate=fromDate,
-            toDate=fromDate,
         )
         events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
@@ -186,18 +179,11 @@ class ETrade(Broker):
 
         return splits_df, (splits_df.shape[0] > 1)
 
-    def get_order_option_data(
-        self, orderId: str, sym: str, date: str
-    ) -> tuple[pd.DataFrame, bool]:
-        date_object = datetime.strptime(date, r"%m/%d/%y")
-        fromDate = date_object.strftime(r"%m%d%Y")
+    def get_option_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
-            symbol=sym,
-            fromDate=fromDate,
-            toDate=fromDate,
         )
         events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
@@ -206,15 +192,19 @@ class ETrade(Broker):
             if event["name"] == "ORDER_EXECUTED":
                 size = event["Instrument"][0]["filledQuantity"]
                 price = event["Instrument"][0]["averageExecutionPrice"]
-                info = pd.Series(
-                    {
-                        "Broker Executed": event["dateTime"],
-                        "Size": size,
-                        "Price": price,
-                        "Action": event["Instrument"][0]["orderAction"],
-                        "Dollar Amt": size + price * 100,
-                    }
-                )
+                product = event["Instrument"][0]["Product"]
+                expiration = f'{product["expiryMonth"]}/{product["expiryDay"]}/{product["expiryYear"]}'
+                row_data = {
+                    "Broker Executed": event["dateTime"],
+                    "Size": size,
+                    "Price": price,
+                    "Action": event["Instrument"][0]["orderAction"],
+                    "Dollar Amt": round(size + price * 100, 4),
+                    "Option Type": product["callPut"],
+                    "Strike": product["strikePrice"],
+                    "Expiration": expiration,
+                }
+                info = pd.Series(row_data)
                 splits_df = pd.concat([splits_df, info.to_frame().T], ignore_index=True)
 
         return splits_df, (splits_df.shape[0] > 1)

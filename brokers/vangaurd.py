@@ -348,7 +348,28 @@ class Vanguard(Broker):
         )
         self._save_option_report_to_file()
 
+    def download_trade_data(self, dates: list[str]) -> None:
+        # TODO: doesn't completely work
+        self._chrome_inst.open("https://confirmations.web.vanguard.com/")
+        input("Waiting to set confirmation type to monetary")
+        idx = 1
+        while True:
+            try:
+                date = self._chrome_inst.find(
+                    By.XPATH, f'//*[@id="confirms-table"]/tbody/tr[{idx}]/td[1]'
+                ).text
+                print(f"Downloading {date}")
+                download = self._chrome_inst.find(
+                    By.XPATH, f'//*[@id="download-icon-{idx-1}"]'
+                )
+                download.click()
+                time.sleep(2)
+                idx += 1
+            except:
+                break
+
 
 if __name__ == "__main__":
-    broker = Vanguard(Path("temp.csv"), BrokerNames.VD, Path("temp_option.csv"))
-    broker.login()
+    vd = Vanguard(Path("temp.csv"), BrokerNames.VD, Path("temp_option.csv"))
+    vd.login()
+    vd.download_trade_data([])

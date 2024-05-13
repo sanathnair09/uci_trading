@@ -13,8 +13,8 @@ if __name__ == "__main__":
     trader.start()
     # trader.sell_leftover_positions()
     # trader.manual_override(
-    #     [],
-    #     ActionType.CLOSE,
+    # [parse_option_string(""),],
+    # ActionType.CLOSE,
     # )
     # AutomatedTrading.generate_report()
     # AutomatedTrading.generate_option_report()

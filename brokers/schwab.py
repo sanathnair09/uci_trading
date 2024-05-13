@@ -13,10 +13,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 
 from utils.broker import Broker, OptionOrder, StockOrder
-from brokers import SCHWAB_LOGIN, SCHWAB_PASSWORD
+from brokers import BASE_PATH, SCHWAB_LOGIN, SCHWAB_PASSWORD
 from utils.market_data import MarketData
 from utils.util import convert_to_float, parse_option_string
 from utils.selenium_helper import CustomChromeInstance
+import os
 from utils.report.report import (
     NULL_STOCK_DATA,
     OptionReportEntry,
@@ -235,14 +236,30 @@ class Schwab(Broker):
         self._chrome_inst.open("https://client.schwab.com/app/trade/tom/trade")
         time.sleep(1)
 
-    def download_trade_data(self, date: str) -> None:
+    def download_trade_data(self, date: list[str]) -> None:
+        for d in date:
+            print("Downloading Schwab data for", d)
+            self._download_trade_data_helper(d)
+
+    def _download_trade_data_helper(self, date: str) -> None:
+        """
+        date: "MM/DD/YYYY"
+        """
+        self._chrome_inst.open("https://client.schwab.com/app/accounts/history/#/")
+        time.sleep(2)
         date_range = Select(
-            self._chrome_inst.find(By.XPATH, '//*[@id="statements-daterange1"]')
+            self._chrome_inst.find(By.XPATH, '//*[@id="date-range-select-id"]')
         )
         date_range.select_by_visible_text("Custom")
 
-        from_input = self._chrome_inst.find(By.XPATH, '//*[@id="calendar-FromDate"]')
-        to_input = self._chrome_inst.find(By.XPATH, '//*[@id="calendar-ToDate"]')
+        from_input = self._chrome_inst.find(
+            By.XPATH,
+            '//*[@id="dropdown-form"]/app-date-picker/div[2]/sdps-datepicker[1]/sdps-input/div/div/input',
+        )
+        to_input = self._chrome_inst.find(
+            By.XPATH,
+            '//*[@id="dropdown-form"]/app-date-picker/div[2]/sdps-datepicker[2]/sdps-input/div/div/input',
+        )
 
         self._chrome_inst.sendKeyboardInput(from_input, date)
         self._chrome_inst.sendKeyboardInput(to_input, date)
@@ -250,13 +267,65 @@ class Schwab(Broker):
 
         time.sleep(2)
 
-        search = self._chrome_inst.find(By.XPATH, '//*[@id="btnSearch"]')
+        search = self._chrome_inst.find(By.XPATH, '//*[@id="lbl_search-button"]')
         search.click()
 
-        download = self._chrome_inst.find(By.XPATH, '//*[@id="bttnExport"]/sdps-button')
+        download = self._chrome_inst.find(
+            By.XPATH, '//*[@id="history-header-utility-bar-export-button"]'
+        )
         download.click()
 
-        input("Approved Download?")
+        export = self._chrome_inst.find(
+            By.XPATH,
+            '//*[@id="transactions-tab-panel"]/div/div/app-brokerage-view/div/app-export-modal/sdps-modal/div[1]/div/div/div[3]/div/div/sdps-button[2]/button',
+        )
+        export.click()
+        time.sleep(1.5)
+        self._process_downloaded_data(date)
+
+    def _process_downloaded_data(self, date: str) -> None:
+        files = (BASE_PATH / "data").iterdir()
+        for file in files:
+            if file.suffix == ".csv":
+                schwab_file = file
+        df = pd.read_csv(schwab_file)
+        if df.shape[0] < 2:
+            os.remove(schwab_file)
+            return
+        if (
+            df.loc[
+                (df["Action"] == "Buy to Open") | (df["Action"] == "Sell to Close"),
+                "Symbol",
+            ].shape[0]
+            != 0
+        ):
+            df[["Sym", "Expiration", "Strike", "Option Type"]] = df.loc[
+                (df["Action"] == "Buy to Open") | (df["Action"] == "Sell to Close"),
+                "Symbol",
+            ].str.split(" ", expand=True)
+            df.loc[
+                (df["Action"] == "Buy to Open") | (df["Action"] == "Sell to Close"),
+                "Symbol",
+            ] = df.loc[df["Sym"].notna(), "Sym"]
+            df = df.drop(columns=["Sym"])
+            df.loc[df["Option Type"] == "C", "Option Type"] = "Call"
+            df.loc[df["Option Type"] == "P", "Option Type"] = "Put"
+            df.loc[df["Action"] == "Buy to Open", "Action"] = "Buy"
+            df.loc[df["Action"] == "Sell to Close", "Action"] = "Sell"
+        df = df.drop(columns=["Description", "Fees & Comm"])
+        df.loc[df["Action"] == "Buy", "Amount"] = df.loc[
+            df["Action"] == "Buy", "Amount"
+        ].str[1:]
+        df["Price"] = pd.to_numeric(df["Price"].str[1:])
+        df["Amount"] = pd.to_numeric(df["Amount"].str[1:])
+        df.rename(columns={"Quantity": "Size", "Amount": "Dollar Amt"}, inplace=True)
+
+        os.remove(schwab_file)
+        df.to_csv(
+            BASE_PATH
+            / f"data/schwab/schwab_{datetime.strptime(date, '%m/%d/%Y').strftime('%m_%d')}.csv",
+            index=False,
+        )
 
     def get_current_positions(self) -> tuple[list[StockOrder], list[OptionOrder]]:
         """
@@ -405,6 +474,7 @@ class Schwab(Broker):
                 path = '//*[@id="mcaio-level-1-item-tradeStrategyoptions"]/ol[2]/li'
             self._chrome_inst.find(By.XPATH, path).click()
         time.sleep(0.5)
+        self._check_pdt_error()
 
     def _set_action(self, action: ActionType) -> None:
         element = self._chrome_inst.find(By.XPATH, '//*[@id="_action"]')
@@ -436,8 +506,30 @@ class Schwab(Broker):
         else:
             dropdown.select_by_visible_text("Limit")
 
+    def _check_pdt_error(self) -> None:
+        try:
+            elem = self._chrome_inst.find(
+                By.XPATH, '//*[@id="orderMessages"]/ul/ul/li[1]/input'
+            )
+            elem.click()
+        except NoSuchElementException:
+            pass
+
 
 if __name__ == "__main__":
+    dir = Path("/Users/sanathnair/Developer/trading/reports/original")
+    dates = set()
+    for file in dir.iterdir():
+        if file.suffix == ".csv":
+            date = "/".join(file.name.split("_")[-2:])
+            dates.add(f"{date[:-4]}/2024")
+    existing = set()
+    schwab_path = BASE_PATH / "data/schwab"
+    for file in schwab_path.iterdir():
+        if file.suffix == ".csv":
+            date = "/".join(file.name.split("_")[-2:])
+            existing.add(f"{date[:-4]}/2024")
     s = Schwab(Path("temp.csv"), BrokerNames.SB, Path("temp_option.csv"))
     s.login()
+    s.download_trade_data(list(dates - existing))
     pass

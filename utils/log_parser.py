@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def parse_log(log_file: Path):
+def parse_log(log_file: Path) -> None:
     with log_file.open("r") as file:
         data = []
         for line in file:

@@ -75,7 +75,8 @@ class AutomatedTrading:
                 if len(schedule.get_jobs()) == 0:
                     logger.info("Finished trading")
                     break
-        except:
+        except Exception as e:
+            logger.error(e)
             for broker in self._brokers:
                 del broker
 
@@ -135,7 +136,7 @@ class AutomatedTrading:
             schedule.every().day.at(buy_time.strftime("%H:%M")).do(
                 self._buy_across_brokers,
                 sym_list=sym_list,
-                option=option,
+                options=[option],
                 fractional=fractional,
             )
 
@@ -281,7 +282,7 @@ class AutomatedTrading:
             for order in orders
             if order.price >= 20
         ]
-
+        logger.info("Currently Buying")
         self._perform_trade(EQUITY_BROKERS, orders, "STOCKS", ActionType.BUY)
         self._perform_trade(
             FRAC_BROKERS,
@@ -304,12 +305,13 @@ class AutomatedTrading:
         orders = parse_stock_list(self._manager.get("STOCKS"))
         frac_orders = parse_stock_list(self._manager.get("FRACTIONALS"))
 
-        self._perform_trade(EQUITY_BROKERS, orders, "STOCKS", ActionType.BUY)
+        logger.info("Currently Selling")
+        self._perform_trade(EQUITY_BROKERS, orders, "STOCKS", ActionType.SELL)
         self._perform_trade(
             FRAC_BROKERS,
             frac_orders,
             "FRACTIONALS",
-            ActionType.BUY,
+            ActionType.SELL,
         )
         option_order = parse_option_list(self._manager.get("OPTIONS"))
         if option_order:
@@ -329,7 +331,11 @@ class AutomatedTrading:
 
         formatted_orders = format_list_of_orders(orders)
         self._manager.set(key, formatted_orders)
-        msg = "Currently Buying" if action == ActionType.BUY else "Currently Selling"
+        msg = (
+            f"Buying {key}"
+            if action == ActionType.BUY or action == ActionType.OPEN
+            else f"Selling {key}"
+        )
         logger.info(f"{msg}: {formatted_orders}")
         if action == ActionType.OPEN or action == ActionType.CLOSE:
             self._perform_option_action(

@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-import ujson as json
+import ujson as json  # type: ignore[import-untyped]
 
 from utils.program_manager import ProgramManager
 

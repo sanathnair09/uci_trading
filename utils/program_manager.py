@@ -1,4 +1,4 @@
-import ujson as json
+import ujson as json  # type: ignore[import-untyped]
 from pathlib import Path
 import sys
 from datetime import datetime
