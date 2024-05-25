@@ -34,3 +34,6 @@ your IDE of choice. Close the file in your IDE and open it again to see the late
 The program was designed with very simple OOP principle of inheritance and polymorphism.
 
 The [./utils/broker.py](./utils/broker.py) file contains the class interface for all brokers. Each specific broker inherits from this class and implements the methods listed. In addition, each class is responsible for updating the placed trade list which is then saved to a CSV at the end of the day
+
+## Note about Schwab Report
+Occasionally there will be a report that's last row contains the entry for bank interest. The report generation program will crash on this report. Just delete that row and rerun from the report it failed on.
