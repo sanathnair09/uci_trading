@@ -271,10 +271,13 @@ def combine_schwab_data(
         df_sb = df[df["Broker"] == "SB"]
         if option:
             sb_df_options = sb_df[sb_df["Option Type"].notna()]
+            sb_df_options.loc[:, "Option Type"] = sb_df_options.loc[
+                :, "Option Type"
+            ].str[0]
             res = pd.merge(
                 df_sb,
                 sb_df_options,
-                on=["Symbol", "Action"],
+                on=["Symbol", "Action", "Option Type"],
                 how="outer",
                 suffixes=(None, "_y"),
             )
@@ -282,7 +285,6 @@ def combine_schwab_data(
             res["Dollar Amt"] = res["Dollar Amt_y"]
             res["Expiration"] = res["Expiration_y"]
             res["Strike"] = res["Strike_y"]
-            res["Option Type"] = res["Option Type_y"]
             res = res.drop(
                 columns=[
                     "Price_y",
@@ -291,7 +293,6 @@ def combine_schwab_data(
                     "Dollar Amt_y",
                     "Expiration_y",
                     "Strike_y",
-                    "Option Type_y",
                 ]
             )
         else:
@@ -346,12 +347,15 @@ def combine_fidelity_data(
         df_fd = df.loc[df["Broker"] == "FD"]
         if option:
             fd_df_equities = fd_df[fd_df["Option Type"].notna()]
+            fd_df_equities.loc[:, "Option Type"] = fd_df_equities.loc[
+                :, "Option Type"
+            ].str[0]
             res = pd.merge_asof(
-                df_fd,
-                fd_df_equities,
+                df_fd.sort_values("Program Executed"),
+                fd_df_equities.sort_values("Broker Executed"),
                 left_on="Program Executed",
                 right_on="Broker Executed",
-                by=["Symbol", "Action"],
+                by=["Symbol", "Action", "Option Type"],
                 direction="nearest",
                 suffixes=(None, "_y"),
             )
@@ -362,7 +366,6 @@ def combine_fidelity_data(
                     "Dollar Amt",
                     "Strike",
                     "Expiration",
-                    "Option Type",
                 ]
             ] = res[
                 [
@@ -371,7 +374,6 @@ def combine_fidelity_data(
                     "Dollar Amt_y",
                     "Strike_y",
                     "Expiration_y",
-                    "Option Type_y",
                 ]
             ]
             res = res.drop(
@@ -382,7 +384,6 @@ def combine_fidelity_data(
                     "Dollar Amt_y",
                     "Expiration_y",
                     "Strike_y",
-                    "Option Type_y",
                     "Identifier",
                     "Split",
                     "Broker Executed_y",
@@ -417,6 +418,16 @@ def combine_fidelity_data(
             fd_df_equities_split = fd_df_equities[fd_df_equities["Split"] == True]
             splits = pd.DataFrame(columns=df_fd.columns)
             indices = []
+            cols = [
+                "Broker Executed",
+                "Price",
+                "Dollar Amt",
+                "Size",
+                "Split",
+                "Symbol",
+                "Action",
+            ]
+            index_col = [df_fd.columns.get_loc(col) for col in cols]
             for _, row in fd_df_equities_split.iterrows():
                 report_row = df_fd[
                     (df_fd["Symbol"] == row["Symbol"])
@@ -425,9 +436,10 @@ def combine_fidelity_data(
                 ].copy()
                 if report_row.shape[0] != 0:
                     indices.append(report_row.index[0])
-                    report_row[
-                        ["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]
-                    ] = row[["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]]
+                    report_row.iloc[0, index_col] = row[cols]
+                    # report_row[
+                    #     ["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]
+                    # ] = row[["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]]
                     splits = pd.concat([splits, report_row], axis=0, ignore_index=True)
                 else:
                     data = (
@@ -436,15 +448,6 @@ def combine_fidelity_data(
                         .copy()
                     )
                     data[:] = np.nan
-                    cols = [
-                        "Broker Executed",
-                        "Price",
-                        "Dollar Amt",
-                        "Size",
-                        "Split",
-                        "Symbol",
-                        "Action",
-                    ]
                     data[cols] = row[cols]
                     data["Order Type"] = "Market"
                     splits = pd.concat([splits, data], axis=0, ignore_index=True)
