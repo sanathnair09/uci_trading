@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, Callable, Optional, TypeVar, Union, no_type_check
-from utils.broker import OptionOrder, StockOrder
+from typing import Optional, Union, no_type_check
 
+from utils.broker import OptionOrder, StockOrder
 from utils.report.report import OptionType, OrderType
 
 
@@ -63,12 +63,10 @@ def process_option_input() -> list[OptionOrder]:
     return orders
 
 
-def parse_option_string(option_string: str) -> Optional[OptionOrder]:
+def parse_option_string(option_string: str) -> OptionOrder:
     """
     SYM-Call/Put-STRIKE-MM/DD/YYYY
     """
-    if option_string == "":
-        return None
     sym, option_type_str, strike, expiration_str = option_string.split("-")
     option_type = (
         OptionType.CALL if option_type_str.upper() == "CALL" else OptionType.PUT
@@ -77,31 +75,35 @@ def parse_option_string(option_string: str) -> Optional[OptionOrder]:
     return OptionOrder(sym, option_type, strike, expiration, OrderType.MARKET)
 
 
-def format_list_of_orders(orders: list[StockOrder]) -> str:
-    return "-".join([str(order) for order in orders])
+def parse_option_list(option_strings: list[str]) -> list[OptionOrder]:
+    return [parse_option_string(option) for option in option_strings]
 
 
-def parse_stock_string(stock_string: str) -> list[StockOrder]:
-    parts = stock_string.split("-")
-    if parts[0] == "":
-        return []
-    res: list[StockOrder] = []
-    for part in parts:
-        sym, quantity, price, order_type_str = part.split(",")
-        order_type = (
-            OrderType.MARKET
-            if order_type_str == "OrderType.MARKET"
-            else OrderType.LIMIT
-        )
-        res.append(StockOrder(sym, float(quantity), float(price), order_type))
-    return res
+def parse_stock_string(stock_string: str) -> StockOrder:
+    sym, quantity, price = stock_string.split(",")
+    return StockOrder(sym, float(quantity), float(price))
 
 
-T = TypeVar("T")
+def parse_stock_list(stocks_string: list[str]) -> list[StockOrder]:
+    return [parse_stock_string(stock) for stock in stocks_string]
 
 
-def check_none(value: T) -> Union[T, str]:
-    return value if value is None else ""
+def format_list_of_orders(
+    orders: Union[list[StockOrder], list[OptionOrder]]
+) -> list[str]:
+    return [str(order) for order in orders]
+
+
+def convert_date(date_str: str, format: str) -> str:
+    """
+    convert date from YYYY-MM-DD to format
+    """
+    date_object = datetime.strptime(date_str, "%Y-%m-%d")
+
+    # Format the date to MMM DD, YYYY
+    formatted_date = date_object.strftime(format)
+
+    return formatted_date
 
 
 if __name__ == "__main__":

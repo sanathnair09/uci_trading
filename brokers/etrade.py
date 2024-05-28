@@ -36,7 +36,7 @@ from utils.report.report import (
     OptionData,
 )
 from utils.selenium_helper import CustomChromeInstance
-from utils.util import repeat_on_fail
+from utils.util import parse_option_string, repeat_on_fail
 
 
 _ETradeOrderInfo = namedtuple(
@@ -81,7 +81,7 @@ class ETrade(Broker):
         add an input statement on line 53 and then check the XPATH and change if needed.
         :return:
         """
-        chrome_inst = CustomChromeInstance.createInstance()
+        # chrome_inst = CustomChromeInstance.createInstance()
         tokens = {}
         try:
             oauth = pyetrade.ETradeOAuth(self._consumer_key, self._consumer_secret)
@@ -110,7 +110,7 @@ class ETrade(Broker):
             # )
             # tokens = oauth.get_access_token(code.get_attribute("value"))
         except Exception as e:
-            chrome_inst.quit()
+            # chrome_inst.quit()
             logger.error("Error logging in automatically. Trying Manually...")
             # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key, self._consumer_secret)
@@ -140,7 +140,7 @@ class ETrade(Broker):
                 tokens["oauth_token_secret"],
                 dev=False,
             )
-            chrome_inst.quit()
+            # chrome_inst.quit()
 
     def _get_stock_data(self, sym: str) -> StockData:
         quote = self._market.get_quote([sym], resp_format="json")["QuoteResponse"][
@@ -153,18 +153,11 @@ class ETrade(Broker):
             float(quote["All"]["totalVolume"]),
         )
 
-    def get_order_data(
-        self, orderId: str, sym: str, date: str
-    ) -> tuple[pd.DataFrame, bool]:
-        date_object = datetime.strptime(date, r"%m/%d/%y")
-        fromDate = date_object.strftime(r"%m%d%Y")
+    def get_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
-            symbol=sym,
-            fromDate=fromDate,
-            toDate=fromDate,
         )
         events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
@@ -186,18 +179,11 @@ class ETrade(Broker):
 
         return splits_df, (splits_df.shape[0] > 1)
 
-    def get_order_option_data(
-        self, orderId: str, sym: str, date: str
-    ) -> tuple[pd.DataFrame, bool]:
-        date_object = datetime.strptime(date, r"%m/%d/%y")
-        fromDate = date_object.strftime(r"%m%d%Y")
+    def get_option_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
-            symbol=sym,
-            fromDate=fromDate,
-            toDate=fromDate,
         )
         events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
@@ -206,15 +192,19 @@ class ETrade(Broker):
             if event["name"] == "ORDER_EXECUTED":
                 size = event["Instrument"][0]["filledQuantity"]
                 price = event["Instrument"][0]["averageExecutionPrice"]
-                info = pd.Series(
-                    {
-                        "Broker Executed": event["dateTime"],
-                        "Size": size,
-                        "Price": price,
-                        "Action": event["Instrument"][0]["orderAction"],
-                        "Dollar Amt": size + price * 100,
-                    }
-                )
+                product = event["Instrument"][0]["Product"]
+                expiration = f'{product["expiryMonth"]}/{product["expiryDay"]}/{product["expiryYear"]}'
+                row_data = {
+                    "Broker Executed": event["dateTime"],
+                    "Size": size,
+                    "Price": price,
+                    "Action": event["Instrument"][0]["orderAction"],
+                    "Dollar Amt": round(size + price * 100, 4),
+                    "Option Type": product["callPut"],
+                    "Strike": product["strikePrice"],
+                    "Expiration": expiration,
+                }
+                info = pd.Series(row_data)
                 splits_df = pd.concat([splits_df, info.to_frame().T], ignore_index=True)
 
         return splits_df, (splits_df.shape[0] > 1)
@@ -376,11 +366,14 @@ class ETrade(Broker):
         return self._option_helper(order, ActionType.CLOSE)
 
     def _option_helper(self, order: OptionOrder, action_type: ActionType) -> str:
+        sym = order.sym
+        if order.sym == "SPX":
+            sym = "SPXW"
         order_action = "BUY_OPEN" if action_type == ActionType.OPEN else "SELL_CLOSE"
         call_put = "CALL" if order.option_type == OptionType.CALL else "PUT"
         res = self._orders.place_option_order(
             accountIdKey=self._account_id,
-            symbol=order.sym,
+            symbol=sym,
             strikePrice=float(order.strike),
             orderAction=order_action,
             callPut=call_put,
@@ -406,7 +399,7 @@ class ETrade(Broker):
             pair = (
                 pair["Call"] if option.option_type == OptionType.CALL else pair["Put"]
             )
-            if pair["strikePrice"] == str(option.strike):
+            if float(pair["strikePrice"]) == float(option.strike):
                 return OptionData(
                     pair["ask"],
                     pair["bid"],
@@ -450,7 +443,7 @@ class ETrade(Broker):
                 OrderType.MARKET,
                 False,
                 order_data.orderId,
-                "",  # (etrade doesn't have activity id)
+                None,  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
@@ -483,9 +476,9 @@ class ETrade(Broker):
                 pre_stock_data,
                 post_stock_data,
                 OrderType.MARKET,
-                "",
+                None,
                 order_data.orderId,
-                "",  # (etrade doesn't have activity id)
+                None,  # (etrade doesn't have activity id)
                 self._broker_name,
             )
         )
@@ -562,5 +555,4 @@ class ETrade(Broker):
 if __name__ == "__main__":
     et = ETrade(Path("temp.csv"), BrokerNames.E2, Path("temp_option.csv"))
     et.login()
-    print(et.get_current_positions())
     pass

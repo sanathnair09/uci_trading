@@ -25,6 +25,7 @@ from utils.report.report import (
     OptionData,
 )
 from utils.selenium_helper import CustomChromeInstance
+from utils.util import convert_date
 
 
 #
@@ -287,69 +288,30 @@ class Fidelity(Broker):
                 '//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[3]/div/input[2]',
             ).click()
 
-    def _convert_date(self, date_str: str) -> str:
-        # Convert the month name to its corresponding number
-        month_dict = {
-            "Jan": 1,
-            "Feb": 2,
-            "Mar": 3,
-            "Apr": 4,
-            "May": 5,
-            "Jun": 6,
-            "Jul": 7,
-            "Aug": 8,
-            "Sep": 9,
-            "Oct": 10,
-            "Nov": 11,
-            "Dec": 12,
-        }
-
-        # Split the date string into its components
-        month_name, day, year = date_str.split()
-
-        # Convert month name to its corresponding number
-        month = month_dict[month_name]
-
-        # Format the date as YYYY-MM-DD
-        formatted_date = datetime(int(year), month, int(day[:-1])).strftime("%Y-%m-%d")
-
-        return formatted_date
-
     def _set_option_expiration(self, expiration_date: str) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="exp_dropdown"]')
         dropdown.click()
         time.sleep(1)
-        idx = 0
-        while idx < 15:
-            try:
-                content = self._chrome_inst.find(
-                    By.XPATH, f'//*[@id="dest-expiration-{idx}"]/span'
-                )
-                if self._convert_date(content.text) == expiration_date:
-                    content.click()
-            except:
-                pass
-            idx += 1
+        date = convert_date(expiration_date, "%b %d, %Y")
+        expiration_entry = self._chrome_inst.find(
+            By.XPATH,
+            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[4]/div/div/button/span[contains(text(), "{date}")]',
+        )
+        self._chrome_inst.scroll_to_element(expiration_entry)
+        expiration_entry.click()
         time.sleep(2)
 
     def _set_strike_price(self, strike: str) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="strike_dropdown"]')
         dropdown.click()
         time.sleep(1)
-        idx = 1
-        while idx < 1000:
-            try:
-                content = self._chrome_inst.find(
-                    By.XPATH,
-                    f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[{idx}]',
-                )
-                formatted_text = content.text
-                if formatted_text == str(strike):
-                    content.click()
-                    return
-            except:
-                pass
-            idx += 1
+        formatted_strike = "{0:,.2f}".format(float(strike))
+        strike_entry = self._chrome_inst.find(
+            By.XPATH,
+            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[contains(text(), "{formatted_strike}")]',
+        )
+        self._chrome_inst.scroll_to_element(strike_entry)
+        strike_entry.click()
 
     def _set_option_order_type(self) -> None:
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="orderType_dropdown"]')
@@ -551,12 +513,39 @@ class Fidelity(Broker):
             BASE_PATH
             / f'data/Portfolio_Positions_{datetime.now().strftime("%b-%d-%Y")}.csv'
         )
+
+        positions: list[StockOrder] = []
+        option_positions: list[OptionOrder] = []
+
         df = pd.read_csv(file)
         df = df.drop(df.index[[0, -1, -2, -3, -4]])  # only keep rows with stock info
-        positions = [
-            StockOrder(sym, quantity)
-            for sym, quantity in df[["Symbol", "Quantity"]].to_numpy()
-        ]
+        for _, row in df.iterrows():
+            if "-" in row["Symbol"]:
+                #  -BX240426C121
+                year = datetime.now().year
+                year_start = row["Symbol"].find(
+                    str(year)[2:]
+                )  # last two digits of year
+                expiration = row["Symbol"][year_start : year_start + 6]
+                sym = row["Symbol"][2:year_start]
+                option_type = (
+                    OptionType.CALL
+                    if "C" == row["Symbol"][year_start + 6 : year_start + 7]
+                    else OptionType.PUT
+                )
+                strike = row["Symbol"][year_start + 7 :]
+                if "." not in strike:
+                    strike = f"{strike}.00"
+                option_positions.append(
+                    OptionOrder(
+                        sym,
+                        option_type,
+                        strike,
+                        datetime.strptime(expiration, "%y%m%d").strftime("%Y-%m-%d"),
+                    )
+                )
+            else:
+                positions.append(StockOrder(row["Symbol"], row["Quantity"]))
         self._chrome_inst.open(
             "https://digital.fidelity.com/ftgw/digital/trade-equity/index/orderEntry"
         )
@@ -566,7 +555,7 @@ class Fidelity(Broker):
 
         os.remove(file)
 
-        return positions, []
+        return positions, option_positions
 
     def get_trade_data(self) -> pd.DataFrame:
         """
@@ -588,7 +577,7 @@ class Fidelity(Broker):
         try:  # super sus
 
             def get_xpath(row: int) -> str:
-                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/account-activity-container/div/div[2]/activity-list[1]/div/div[3]/div[{row}]/div/div[1]'
+                return f'//*[@id="accountDetails"]/div/div[2]/div/new-tab-group/new-tab-group-ui/div[2]/activity-orders-shell/div/ap143528-portsum-dashboard-activity-orders-home-root/div/div/account-activity-container/div/div[2]/activity-list[1]/div[2]/div[2]/div[{row}]/div/div[1]/div'
 
             x = 1
             while True:
@@ -674,18 +663,18 @@ class Fidelity(Broker):
         df = pd.read_html(StringIO(opened))
 
         # get the data from the individual split dfs and put them into a list
-        prices = []
+        data = []
         for idx, temp in enumerate(df):
             splits = temp.iloc[:-1].to_numpy()
             length = splits.shape[0]
             identifier = np.empty((length, 1))
             identifier.fill(idx)
             updated = np.hstack((splits, identifier))
-            prices.append(updated)
+            data.append(updated)
 
         # combine all the rows into one
-        res = prices[0]
-        for x in prices[1:]:
+        res = data[0]
+        for x in data[1:]:
             res = np.append(res, x, axis=0)
 
         # create a df with split info

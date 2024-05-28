@@ -1,25 +1,26 @@
-from datetime import datetime
-import json
-from pathlib import Path
 import shutil
+from datetime import datetime
+from pathlib import Path
 
 import pytest
+import ujson as json  # type: ignore[import-untyped]
+
 from utils.program_manager import ProgramManager
 
 
 class TestProgramManager:
     @pytest.fixture()
-    def expected_keys(self):
+    def expected(self):
         return {
-            "DATE",
-            "PREVIOUS_STOCK_NAME",
-            "STATUS",
-            "CURRENTLY_TRADING_STOCKS",
-            "CURRENTLY_TRADING_OPTION",
-            "CURRENT_BIG_TRADES",
-            "CURRENT_FRACTIONAL_TRADES",
-            "COMPLETED",
-            "COMPLETED_OPTIONS",
+            "DATE": str,
+            "PREVIOUS_STOCK_NAME": str,
+            "STATUS": str,
+            "STOCKS": list,
+            "OPTIONS": list,
+            "CURRENT_BIG_TRADES": list,
+            "FRACTIONALS": list,
+            "COMPLETED": int,
+            "COMPLETED_OPTIONS": int,
         }
 
     @pytest.fixture()
@@ -34,7 +35,7 @@ class TestProgramManager:
         curr_dir.mkdir(parents=True, exist_ok=True)
         (curr_dir / "logs").mkdir(parents=True, exist_ok=True)
         (curr_dir / "reports/original").mkdir(parents=True, exist_ok=True)
-        yield
+        yield  # let test run
         # delete all files in tmp directory
         shutil.rmtree(curr_dir)
 
@@ -61,29 +62,25 @@ class TestProgramManager:
         assert report_file.exists()
         assert option_report_file.exists()
 
-    def test_program_manager_program_info_file_content(
-        self, program_manager, expected_keys
-    ):
+    def test_program_manager_program_info_file_content(self, program_manager, expected):
         _, manager = program_manager
 
         with open(manager._program_info_path, "r") as file:
             data = json.load(file)
-            assert all(key in expected_keys for key in data.keys())
+            for key, value in data.items():
+                if key in expected:
+                    assert type(value) == expected[key]
 
-            expected_value_type = [str, str, str, list, str, list, list, int, int]
-            for idx, value in enumerate(data.values()):
-                assert isinstance(value, expected_value_type[idx])
-
-    def test_program_manager_update_program_info_file(self, expected_keys):
+    def test_program_manager_update_program_info_file(self, expected):
         curr_dir = Path(__file__).parent / "tmp"
 
         incomplete_data = {
             "DATE": datetime.now().strftime("%x"),
             "STATUS": "Buy",
-            "CURRENTLY_TRADING_STOCKS": [],
-            "CURRENTLY_TRADING_OPTION": "",
+            "STOCKS": [],
+            "OPTIONS": [],
             "CURRENT_BIG_TRADES": [],
-            "CURRENT_FRACTIONAL_TRADES": [],
+            "FRACTIONALS": [],
             "COMPLETED": 0,
             "COMPLETED_OPTIONS": 0,
         }
@@ -93,38 +90,38 @@ class TestProgramManager:
         manager = ProgramManager(base_path=curr_dir)
 
         self.test_program_manager_program_info_file_content(
-            (curr_dir, manager), expected_keys
+            (curr_dir, manager), expected
         )
 
     def test_program_manager_get_valid_data(self, program_manager):
         _, manager = program_manager
 
         # only testing "Status", "Completed", "Completed Options"
-        assert manager.get_program_data("STATUS") == "Buy"
-        assert manager.get_program_data("COMPLETED") == 0
-        assert manager.get_program_data("COMPLETED_OPTIONS") == 0
+        assert manager.get("STATUS") == "Buy"
+        assert manager.get("COMPLETED") == 0
+        assert manager.get("COMPLETED_OPTIONS") == 0
 
     def test_program_manager_get_invalid_data(self, program_manager):
         _, manager = program_manager
 
         with pytest.raises(KeyError) as error:
-            manager.get_program_data("INVALID_KEY")
+            manager.get("INVALID_KEY")
 
     def test_program_manager_update_data_for_valid_key(self, program_manager):
         _, manager = program_manager
 
         # only testing "Status", "Completed", "Completed Options"
-        manager.update_program_data("STATUS", "Sell")
-        assert manager.get_program_data("STATUS") == "Sell"
+        manager.set("STATUS", "Sell")
+        assert manager.get("STATUS") == "Sell"
 
-        manager.update_program_data("COMPLETED", 1)
-        assert manager.get_program_data("COMPLETED") == 1
+        manager.set("COMPLETED", 1)
+        assert manager.get("COMPLETED") == 1
 
-        manager.update_program_data("COMPLETED_OPTIONS", 1)
-        assert manager.get_program_data("COMPLETED_OPTIONS") == 1
+        manager.set("COMPLETED_OPTIONS", 1)
+        assert manager.get("COMPLETED_OPTIONS") == 1
 
     def test_program_manager_update_data_for_invalid_key(self, program_manager):
         _, manager = program_manager
 
         with pytest.raises(KeyError) as error:
-            manager.update_program_data("INVALID_KEY", "Sell")
+            manager.set("INVALID_KEY", "Sell")

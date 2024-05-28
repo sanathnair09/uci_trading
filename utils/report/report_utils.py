@@ -1,39 +1,18 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Union, cast
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
 import robin_stocks.robinhood as rh  # type: ignore[import-untyped]
+from loguru import logger
 from pytz import utc, timezone
 
 from utils.report.report import ActionType
 
 
-COLUMN_ORDER = [
-    "Date",
-    "Program Submitted",
-    "Program Executed",
-    "Broker Executed",
-    "Symbol",
-    "Broker",
-    "Action",
-    "Size",
-    "Price",
-    "Dollar Amt",
-    "Pre Quote",
-    "Post Quote",
-    "Pre Bid",
-    "Pre Ask",
-    "Post Bid",
-    "Post Ask",
-    "Pre Volume",
-    "Post Volume",
-    "Order Type",
-    "Split",
-    "Order ID",
-    "Activity ID",
-]
+def check_file_existence(file_path: Path) -> bool:
+    return file_path.exists() and file_path.is_file()
 
 
 def convert_int64_utc_to_pst(int64: int) -> Union[str, int]:
@@ -88,11 +67,13 @@ def get_robinhood_option_data(row: pd.Series) -> pd.Series:
     pst = now_aware.astimezone(timezone("US/Pacific"))
     row["Broker Executed"] = pst.strftime("%I:%M:%S")
     price = float(order_data["legs"][0]["executions"][0]["price"])
-    size = float(order_data["legs"][0]["executions"][0]["quantity"])
+    quantity = float(order_data["legs"][0]["executions"][0]["quantity"])
 
     row["Price"] = price
-    row["Size"] = size
-    row["Dollar Amt"] = price * size * 100
+    row["Dollar Amt"] = round(price * quantity * 100, 4)
+    row["Strike"] = order_data["legs"][0]["strike_price"]
+    row["Option Type"] = order_data["legs"][0]["option_type"].capitalize()
+    row["Expiration"] = order_data["legs"][0]["expiration_date"]
     return row
 
 
@@ -161,27 +142,37 @@ def optimized_calculate_bjzz(rounded_price: pd.Series) -> int:
 
 
 def get_ibkr_report(ibkr_file: Path) -> pd.DataFrame:
-    df = pd.read_csv(ibkr_file)
-    df = df.drop(["Acct ID", "Trade Date/Time", "Proceeds"], axis=1)
-    df["Unnamed: 3"] = pd.to_datetime(
-        df["Unnamed: 3"], format="%I:%M:%S %p"
-    ) - pd.Timedelta(hours=3)
-    df["Broker Executed"] = df["Unnamed: 3"].dt.strftime("%I:%M:%S")
-    df["Quantity"] = pd.to_numeric(df["Quantity"])
-    df["Quantity"] = df["Quantity"].abs()
-    df["Dollar Amt"] = df["Quantity"] * df["Price"]
-    df = df.rename(columns={"Type": "Action", "Quantity": "Size"})
+    df = pd.read_csv(ibkr_file, thousands=",")
+    df["Expiration"] = pd.to_datetime(df["Expiration"])
     return df
 
 
 def get_schwab_report(schwab_file: Path) -> pd.DataFrame:
-    with open(schwab_file, "r") as file:
-        df = pd.read_csv(file)
-        df_sub = df.drop(columns=["Description", "Fees & Comm", "Amount"])
-        df_sub["Price"] = pd.to_numeric(df_sub["Price"].str[1:])
-        df_sub["Dollar Amt"] = (df_sub["Quantity"] * df_sub["Price"]).round(4)
-        df_sub = df_sub.rename(columns={"Quantity": "Size"})
-        return df_sub
+    df = pd.read_csv(schwab_file)
+    df["Date"] = pd.to_datetime(df["Date"])
+    if "Expiration" not in df.columns:
+        df["Expiration"] = np.nan
+        df["Strike"] = np.nan
+        df["Option Type"] = np.nan
+    else:
+        df["Expiration"] = pd.to_datetime(df["Expiration"])
+    return df
+
+
+def get_fidelity_report(fidelity_file: Path) -> pd.DataFrame:
+    """
+    Returns a DataFrame with the correct dtypes
+    """
+    df = pd.read_csv(fidelity_file, thousands=",")
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Broker Executed"] = pd.to_datetime(df["Broker Executed"], format="%X")
+    if "Expiration" not in df.columns:
+        df["Expiration"] = np.nan
+        df["Strike"] = np.nan
+        df["Option Type"] = np.nan
+    else:
+        df["Expiration"] = pd.to_datetime(df["Expiration"], format="%b-%d-%Y")
+    return df
 
 
 def create_datetime_from_string(date_string: str) -> datetime:
@@ -201,28 +192,359 @@ def create_datetime_from_string(date_string: str) -> datetime:
     return datetime_obj
 
 
-def parse_etrade_report(df: pd.DataFrame) -> pd.DataFrame:
-    df["Date & Time"] = pd.to_datetime(
-        df["Date & Time"], format="%m/%d/%y %I:%M:%S %p EDT"
+def format_df_dates(df: pd.DataFrame) -> pd.DataFrame:
+    program_submitted_idx = cast(int, df.columns.get_loc("Program Submitted"))
+    df.insert(program_submitted_idx + 1, "Program Submitted Text", "")
+
+    program_executed_idx = cast(int, df.columns.get_loc("Program Executed"))
+    df.insert(program_executed_idx + 1, "Program Executed Text", "")
+
+    broker_executed_idx = cast(int, df.columns.get_loc("Broker Executed"))
+    df.insert(broker_executed_idx + 1, "Broker Executed Text", "")
+
+    df["Program Submitted"] = pd.to_datetime(df["Program Submitted"], errors="coerce")
+    df["Program Executed"] = pd.to_datetime(df["Program Executed"], errors="coerce")
+    df["Broker Executed"] = pd.to_datetime(
+        df["Broker Executed"], format="%X", errors="coerce"
     )
-    df["Date & Time"] = df["Date & Time"] - pd.Timedelta(hours=3)
 
-    df[["Action", "Symbol"]] = df["Order Description"].str.split(expand=True)[[0, 2]]
+    df.loc[df["Program Submitted"].notna(), "Program Submitted Text"] = df.loc[
+        df["Program Submitted"].notna(), "Program Submitted"
+    ].dt.strftime("%X %p")
+    df.loc[df["Program Executed"].notna(), "Program Executed Text"] = df.loc[
+        df["Program Executed"].notna(), "Program Executed"
+    ].dt.strftime("%X %p")
+    df.loc[df["Broker Executed"].notna(), "Broker Executed Text"] = df.loc[
+        df["Broker Executed"].notna(), "Broker Executed"
+    ].dt.strftime("%X %p")
 
-    df = df.drop(columns=["Order Description", "Commission/Fee", "Transaction Status"])
-    df = df.drop([0])
+    df["Date"] = df["Date"].dt.strftime("%m/%d/%Y")
+    df["Program Submitted"] = df["Program Submitted"].dt.strftime("%X:%f")
+    df["Program Executed"] = df["Program Executed"].dt.strftime("%X:%f")
+    df["Broker Executed"] = df["Broker Executed"].dt.strftime("%X")
+    df["Action"] = df["Action"].map({"Buy": 1, "Sell": -1})
 
-    df["Price Executed"] = pd.to_numeric(df["Price Executed"])
-    df["Dollar Amt"] = df["Quantity"] * df["Price Executed"]
+    return df
 
-    df["Broker Executed"] = df["Date & Time"].dt.strftime("%I:%M:%S")
 
-    df = df.rename(
-        columns={
-            "Quantity": "Size",
-            "Price Executed": "Price",
-        }
+def combine_ibkr_data(df: pd.DataFrame, ib_df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    if ib_df is not None:
+        logger.info(f"Combining IBKR")
+        df_if = df[df["Broker"] == "IF"]
+        res = pd.merge(
+            df_if,
+            ib_df,
+            on=["Symbol", "Action"],
+            how="outer",
+            suffixes=(None, "_y"),
+        )
+        res["Broker Executed"] = res["Broker Executed_y"]
+        res["Price"] = res["Price_y"]
+        res["Dollar Amt"] = res["Dollar Amt_y"]
+        res["Size"] = res["Size_y"]
+        res["Broker"] = "IF"
+        res["Split"] = res["Split_y"]
+        res = res.drop(
+            columns=[
+                "Size_y",
+                "Price_y",
+                "Broker Executed_y",
+                "Dollar Amt_y",
+                "Split_y",
+                "Expiration",
+                "Strike",
+                "Option Type",
+            ]
+        )
+        res = res[res["Broker Executed"].notna()]
+        df = df.drop(df_if.index)
+        df = pd.concat([df, res], axis=0, ignore_index=True)
+        logger.info("Done IBKR")
+    return df
+
+
+def combine_schwab_data(
+    df: pd.DataFrame, sb_df: Optional[pd.DataFrame], option: bool = False
+) -> pd.DataFrame:
+    if sb_df is not None:
+        logger.info("Combining Schwab")
+        df_sb = df[df["Broker"] == "SB"]
+        if option:
+            sb_df_options = sb_df[sb_df["Option Type"].notna()]
+            sb_df_options.loc[:, "Option Type"] = sb_df_options.loc[
+                :, "Option Type"
+            ].str[0]
+            res = pd.merge(
+                df_sb,
+                sb_df_options,
+                on=["Symbol", "Action", "Option Type"],
+                how="outer",
+                suffixes=(None, "_y"),
+            )
+            res["Price"] = res["Price_y"]
+            res["Dollar Amt"] = res["Dollar Amt_y"]
+            res["Expiration"] = res["Expiration_y"]
+            res["Strike"] = res["Strike_y"]
+            res = res.drop(
+                columns=[
+                    "Price_y",
+                    "Size",
+                    "Date_y",
+                    "Dollar Amt_y",
+                    "Expiration_y",
+                    "Strike_y",
+                ]
+            )
+        else:
+            sb_df_equities = sb_df[sb_df["Option Type"].isna()]
+            res = pd.merge(
+                df_sb,
+                sb_df_equities,
+                on=["Symbol", "Action"],
+                how="outer",
+                suffixes=(None, "_y"),
+            )
+            res["Price"] = res["Price_y"]
+            res["Dollar Amt"] = res["Dollar Amt_y"]
+            res["Size"] = res["Size_y"]
+            res = res.drop(
+                columns=[
+                    "Size_y",
+                    "Price_y",
+                    "Dollar Amt_y",
+                    "Expiration",
+                    "Strike",
+                    "Option Type",
+                    "Date_y",
+                ]
+            )
+
+        res = res[res["Dollar Amt"].notna()]
+        res["Broker"] = "SB"
+        df = df.drop(df_sb.index)
+        df = pd.concat([df, res], axis=0, ignore_index=True)
+        logger.info("Done Schwab")
+    return df
+
+
+def combine_robinhood_data(df: pd.DataFrame, option: bool = False) -> pd.DataFrame:
+    logger.info("Combining Robinhood")
+
+    df.loc[df["Broker"] == "RH"] = df.loc[df["Broker"] == "RH"].apply(
+        get_robinhood_data if not option else get_robinhood_option_data, axis=1
     )
+    if option:
+        df["Expiration"] = pd.to_datetime(df["Expiration"], format="%Y-%m-%d")
+    logger.info("Done Robinhood")
+    return df
+
+
+def combine_fidelity_data(
+    df: pd.DataFrame, fd_df: Optional[pd.DataFrame], option: bool = False
+) -> pd.DataFrame:
+    logger.info("Combining Fidelity")
+    if fd_df is not None:
+        df_fd = df.loc[df["Broker"] == "FD"]
+        if option:
+            fd_df_equities = fd_df[fd_df["Option Type"].notna()]
+            fd_df_equities.loc[:, "Option Type"] = fd_df_equities.loc[
+                :, "Option Type"
+            ].str[0]
+            res = pd.merge_asof(
+                df_fd.sort_values("Program Executed"),
+                fd_df_equities.sort_values("Broker Executed"),
+                left_on="Program Executed",
+                right_on="Broker Executed",
+                by=["Symbol", "Action", "Option Type"],
+                direction="nearest",
+                suffixes=(None, "_y"),
+            )
+            res[
+                [
+                    "Price",
+                    "Broker Executed",
+                    "Dollar Amt",
+                    "Strike",
+                    "Expiration",
+                ]
+            ] = res[
+                [
+                    "Price_y",
+                    "Broker Executed_y",
+                    "Dollar Amt_y",
+                    "Strike_y",
+                    "Expiration_y",
+                ]
+            ]
+            res = res.drop(
+                columns=[
+                    "Price_y",
+                    "Size",
+                    "Date_y",
+                    "Dollar Amt_y",
+                    "Expiration_y",
+                    "Strike_y",
+                    "Identifier",
+                    "Split",
+                    "Broker Executed_y",
+                ]
+            )
+        else:
+            fd_df_equities = fd_df[(fd_df["Option Type"].isna())]
+            fd_df_equities_no_split = fd_df_equities[fd_df_equities["Split"] == False]
+            res = pd.merge(
+                df_fd,
+                fd_df_equities_no_split,
+                on=["Symbol", "Action", "Size"],
+                how="outer",
+                suffixes=(None, "_y"),
+            )
+            res[["Broker Executed", "Price", "Dollar Amt", "Split"]] = res[
+                ["Broker Executed_y", "Price_y", "Dollar Amt_y", "Split_y"]
+            ]
+            res = res.drop(
+                columns=[
+                    "Broker Executed_y",
+                    "Price_y",
+                    "Dollar Amt_y",
+                    "Split_y",
+                    "Expiration",
+                    "Strike",
+                    "Option Type",
+                    "Identifier",
+                    "Date_y",
+                ]
+            )
+            fd_df_equities_split = fd_df_equities[fd_df_equities["Split"] == True]
+            splits = pd.DataFrame(columns=df_fd.columns)
+            indices = []
+            cols = [
+                "Broker Executed",
+                "Price",
+                "Dollar Amt",
+                "Size",
+                "Split",
+                "Symbol",
+                "Action",
+            ]
+            index_col = [df_fd.columns.get_loc(col) for col in cols]
+            for _, row in fd_df_equities_split.iterrows():
+                report_row = df_fd[
+                    (df_fd["Symbol"] == row["Symbol"])
+                    & (df_fd["Action"] == row["Action"])
+                    & (df_fd["Size"] >= 1)
+                ].copy()
+                if report_row.shape[0] != 0:
+                    indices.append(report_row.index[0])
+                    report_row.iloc[0, index_col] = row[cols]
+                    # report_row[
+                    #     ["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]
+                    # ] = row[["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]]
+                    splits = pd.concat([splits, report_row], axis=0, ignore_index=True)
+                else:
+                    data = (
+                        df_fd[(df_fd["Action"] == row["Action"]) & (df_fd["Size"] >= 1)]
+                        .iloc[[0]]
+                        .copy()
+                    )
+                    data[:] = np.nan
+                    data[cols] = row[cols]
+                    data["Order Type"] = "Market"
+                    splits = pd.concat([splits, data], axis=0, ignore_index=True)
+
+            res = pd.concat([res, splits], axis=0, ignore_index=True)
+
+        res = res[res["Dollar Amt"].notna()]
+        res["Broker"] = "FD"
+        df = df.drop(df_fd.index)
+        df = pd.concat([df, res], axis=0, ignore_index=True)
+        logger.info("Done Fidelity")
+    return df
+
+
+def perform_equity_analysis(df: pd.DataFrame) -> pd.DataFrame:
+    price_idx = cast(int, df.columns.get_loc("Price"))
+    df.insert(price_idx + 1, "Rounded Price - Price", "")
+    df["Rounded Price - Price"] = vectorized_calculate_rounded_price(
+        df["Price"].to_numpy(dtype="float64")
+    )
+
+    # bid - highest buyer is willing to buy
+    # ask - lowest seller is willing to sell
+
+    # =IF(OR(AND(J3=1,L3<Z3),AND(L3>Y3,J3=-1)),1,0)
+    df.insert(price_idx + 2, "PriceImprovement", "")
+    df.loc[df["Price"].notna(), "PriceImprovement"] = df.loc[
+        df["Price"].notna(), ["Action", "Price", "Pre Bid", "Pre Ask"]
+    ].apply(optimized_calculate_price_improvement, axis=1)
+
+    df.insert(price_idx + 3, "Subpenny", "")
+    df.insert(price_idx + 4, "FractionalPIno5", "")
+    df.loc[df["Rounded Price - Price"].notna(), ["Subpenny", "FractionalPIno5"]] = (
+        df.loc[df["Rounded Price - Price"].notna(), "Rounded Price - Price"].apply(
+            optimized_calculate_subpenny_and_fractionalpino5
+        )
+    )
+
+    df.insert(price_idx + 5, "BJZZ Flag", "")
+    df.loc[df["Rounded Price - Price"].notna(), "BJZZ Flag"] = df.loc[
+        df["Rounded Price - Price"].notna(), "Rounded Price - Price"
+    ].apply(optimized_calculate_BJZZ_flag)
+
+    df.insert(price_idx + 6, "Correct", "")
+    df.insert(price_idx + 7, "Wrong", "")
+    df.loc[df["Rounded Price - Price"].notna(), ["Correct", "Wrong"]] = df.loc[
+        df["Rounded Price - Price"].notna(),
+        ["Action", "Rounded Price - Price", "BJZZ Flag"],
+    ].apply(optimized_calculate_correct_and_wrong, axis=1, result_type="expand")
+
+    df.insert(price_idx + 8, "Categories", "")
+    df.loc[df["Rounded Price - Price"].notna(), "Categories"] = df.loc[
+        df["Rounded Price - Price"].notna(),
+        ["Rounded Price - Price", "FractionalPIno5", "Correct"],
+    ].apply(optimized_calculate_categories, axis=1)
+
+    df.insert(price_idx + 9, "BJZZ", "")
+    df.loc[df["Rounded Price - Price"].notna(), "BJZZ"] = df.loc[
+        df["Rounded Price - Price"].notna(), "Rounded Price - Price"
+    ].apply(optimized_calculate_bjzz)
+
+    post_vol_idx = cast(int, df.columns.get_loc("Post Volume"))
+    df.insert(post_vol_idx + 1, "First", 0)
+    df.insert(post_vol_idx + 2, "BigTrade", 0)
+    df.loc[(df["Size"] == 100) & (df["Broker"] == "FD"), ["BigTrade"]] = 1
+    df.insert(post_vol_idx + 3, "TradeID", "")
+
+    df["TradeID"] = (
+        df["Date"].dt.year.astype(str)
+        + df["Date"].dt.month.map("{:02}".format).astype(str)
+        + df["Date"].dt.day.astype(str)
+        + df["Symbol"]
+        + np.where(df["BigTrade"].to_numpy(dtype="int64") == 0, "0100", "100")
+    )
+
+    split_idx = cast(int, df.columns.get_loc("Split"))
+    df.insert(split_idx + 1, "BidAskSpread", "")
+    df.insert(split_idx + 2, "TradeLocation", "")
+
+    df["BidAskSpread"] = df["Pre Ask"] - df["Pre Bid"]
+    df["BidAskSpread"] = pd.to_numeric(df["BidAskSpread"])
+    df["BidAskSpread"] = df["BidAskSpread"].round(4)
+
+    df["Price"] = pd.to_numeric(df["Price"])
+    df["Pre Bid"] = pd.to_numeric(df["Pre Bid"])
+    df["TradeLocation"] = ((df["Price"] - df["Pre Bid"]) / df["BidAskSpread"]).round(4)
+
+    # time formatting -> add text columns next to numeric time
+    df = format_df_dates(df)
+    df["Split"] = df["Split"].map({True: 1, False: 0})
+    return df
+
+
+def perform_option_analysis(df: pd.DataFrame) -> pd.DataFrame:
+    df = format_df_dates(df)
+    # df["Expiration"] = pd.to_datetime(df["Expiration"], format="%Y-%m-%d")
+    # df["Expiration"] = df["Expiration"].dt.strftime("%m/%d/%Y")
     return df
 
 

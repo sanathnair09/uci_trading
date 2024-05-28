@@ -44,24 +44,20 @@ class Robinhood(Broker):
         program_submitted = self._get_current_time()
 
         res = self._market_buy(order)
-        if "id" in res:
-            program_executed = datetime.now().strftime(
-                "%X:%f"
-            )  # when order went through
-            post_stock_data = self._get_stock_data(order.sym)
 
-            self._save_report(
-                order.sym,
-                ActionType.BUY,
-                program_submitted,
-                program_executed,
-                pre_stock_data,
-                post_stock_data,
-                order_id=res["id"],
-                quantity=order.quantity,
-            )
-        elif "detail" in res:
-            raise ValueError(res["detail"])
+        program_executed = datetime.now().strftime("%X:%f")  # when order went through
+        post_stock_data = self._get_stock_data(order.sym)
+
+        self._save_report(
+            order.sym,
+            ActionType.BUY,
+            program_submitted,
+            program_executed,
+            pre_stock_data,
+            post_stock_data,
+            order_id=res["id"],
+            quantity=order.quantity,
+        )
 
     def sell(self, order: StockOrder) -> None:
         pre_stock_data = self._get_stock_data(order.sym)
@@ -69,24 +65,19 @@ class Robinhood(Broker):
 
         res = self._market_sell(order)
 
-        if "id" in res:
-            program_executed = datetime.now().strftime(
-                "%X:%f"
-            )  # when order went through
-            post_stock_data = self._get_stock_data(order.sym)
+        program_executed = datetime.now().strftime("%X:%f")  # when order went through
+        post_stock_data = self._get_stock_data(order.sym)
 
-            self._save_report(
-                order.sym,
-                ActionType.BUY,
-                program_submitted,
-                program_executed,
-                pre_stock_data,
-                post_stock_data,
-                order_id=res["id"],
-                quantity=order.quantity,
-            )
-        elif "detail" in res:
-            raise ValueError(res["detail"])
+        self._save_report(
+            order.sym,
+            ActionType.SELL,
+            program_submitted,
+            program_executed,
+            pre_stock_data,
+            post_stock_data,
+            order_id=res["id"],
+            quantity=order.quantity,
+        )
 
     def buy_option(self, order: OptionOrder) -> None:
         pre_stock_data = self._get_option_data(order)
@@ -178,7 +169,7 @@ class Robinhood(Broker):
                     jsonify=True,
                 ),
             )
-        return cast(dict, res)
+        return cast(dict, res[0])
 
     def _market_sell(self, order: StockOrder) -> dict:
         if order.quantity < 1:
@@ -201,7 +192,7 @@ class Robinhood(Broker):
                     jsonify=True,
                 ),
             )
-        return cast(dict, res)
+        return cast(dict, res[0])
 
     def _handle_option_tick_size(self, action: ActionType, price: float) -> float:
         return self._round_to_nearest(action, price, 0.05)
@@ -253,13 +244,37 @@ class Robinhood(Broker):
             order.expiration,
         )
 
-    def _buy_put_option(self, order: OptionOrder) -> Any:
-        return NotImplementedError
-        # return self._perform_option_trade(ActionType.OPEN, OptionType.PUT, sym, limit_price, strike, expiration)
+    def _buy_put_option(self, order: OptionOrder) -> dict:
+        limit_price = round(
+            float(self._get_option_data(order).ask) * 1.03,
+            2,
+        )
+        limit_price = self._handle_option_tick_size(ActionType.OPEN, limit_price)
 
-    def _sell_put_option(self, order: OptionOrder) -> Any:
-        return NotImplementedError
-        # return self._perform_option_trade(ActionType.CLOSE, OptionType.PUT, sym, limit_price, strike, expiration)
+        return self._perform_option_trade(
+            ActionType.OPEN,
+            OptionType.PUT,
+            order.sym,
+            limit_price,
+            float(order.strike),
+            order.expiration,
+        )
+
+    def _sell_put_option(self, order: OptionOrder) -> dict:
+        limit_price = round(
+            float(self._get_option_data(order).bid) * 0.97,
+            2,
+        )
+        limit_price = self._handle_option_tick_size(ActionType.CLOSE, limit_price)
+
+        return self._perform_option_trade(
+            ActionType.CLOSE,
+            OptionType.PUT,
+            order.sym,
+            limit_price,
+            float(order.strike),
+            order.expiration,
+        )
 
     def _perform_option_trade(
         self,
