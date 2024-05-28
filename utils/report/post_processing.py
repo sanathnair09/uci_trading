@@ -56,9 +56,6 @@ class PostProcessing:
         )
         if option:
             df["Dollar Amt"] = np.nan
-            df["Expiration"] = np.nan
-            df["Strike"] = np.nan
-            df["Option Type"] = np.nan
 
         return df
 
@@ -151,7 +148,7 @@ class PostProcessing:
                 / f'reports/filtered/option_report_{formatted_date.strftime("%m_%d")}_filtered{self._output_file_version}.csv'
             )
 
-        df = df[df["Date"].notna()]
+        df = df[df["Broker"].notna()]
         df.fillna("", inplace=True)
         df.to_csv(filtered_filename, index=False)
 
