@@ -48,7 +48,6 @@ class AutomatedTrading:
         )
 
         self._brokers: list[Broker] = [
-            TDAmeritrade(report_file, BrokerNames.TD, option_report_file),
             Robinhood(report_file, BrokerNames.RH, option_report_file),
             ETrade(report_file, BrokerNames.E2, option_report_file),
             Fidelity(report_file, BrokerNames.FD, option_report_file),
@@ -68,17 +67,15 @@ class AutomatedTrading:
 
     def start(self) -> None:
         self._schedule()
-        try:
-            while True:
+        while True:
+            try:
                 schedule.run_pending()
                 time.sleep(1)
                 if len(schedule.get_jobs()) == 0:
                     logger.info("Finished trading")
                     break
-        except Exception as e:
-            logger.error(e)
-            for broker in self._brokers:
-                del broker
+            except Exception as e:
+                logger.error(e)
 
     def _pre_schedule_processing(self) -> tuple[int, int]:
         # program is run on new day
@@ -127,7 +124,7 @@ class AutomatedTrading:
 
             option = (
                 self._options_list[option_idx % OPTN_LIST_LEN]
-                if 0 <= option_idx < OPTN_LIST_LEN * 2
+                if 0 <= option_idx < OPTN_LIST_LEN
                 else None
             )
             if option:
@@ -166,7 +163,7 @@ class AutomatedTrading:
             logger.error("No stocks to sell")
             return
 
-        if action == ActionType.CLOSE:
+        if action == ActionType.CLOSE or action == ActionType.OPEN:
             option_brokers = self._choose_brokers(OPTN_BROKERS)
             self._perform_option_action(
                 option_brokers,
@@ -175,7 +172,7 @@ class AutomatedTrading:
                 main_program=False,
             )
 
-        elif action == ActionType.SELL:
+        elif action == ActionType.SELL or action == ActionType.BUY:
             brokers = self._choose_brokers([])
             self._perform_action(
                 brokers, cast(list[StockOrder], orders), action, main_program=False
@@ -347,12 +344,22 @@ class AutomatedTrading:
     @staticmethod
     def generate_report(*, version: int = 0) -> None:
         processor = PostProcessing(version)
-        # processor.optimized_generate_report(f"reports/original/report_xx_xx.csv")
+        # processor.generate_report(f"reports/original/report_xx_xx.csv")
+        processor.generate_report(f"reports/original/report_02_08.csv")
 
     @staticmethod
     def generate_option_report(*, version: int = 0) -> None:
         processor = PostProcessing(version)
         # processor.generate_option_report(f"reports/original/option_report_xx_xx.csv")
+        # processor.generate_report(f"reports/original/option_report_05_13.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_15.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_16.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_17.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_20.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_21.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_22.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_23.csv", True)
+        # processor.generate_report(f"reports/original/option_report_05_24.csv", True)
 
 
 if __name__ == "__main__":

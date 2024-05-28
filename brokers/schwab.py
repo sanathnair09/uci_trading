@@ -517,9 +517,9 @@ class Schwab(Broker):
 
 
 if __name__ == "__main__":
-    dir = Path("/Users/sanathnair/Developer/trading/reports/original")
+    original_reports = Path("/Users/sanathnair/Developer/trading/reports/original")
     dates = set()
-    for file in dir.iterdir():
+    for file in original_reports.iterdir():
         if file.suffix == ".csv":
             date = "/".join(file.name.split("_")[-2:])
             dates.add(f"{date[:-4]}/2024")
