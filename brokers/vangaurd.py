@@ -154,7 +154,7 @@ class Vanguard(Broker):
             self._chrome_inst.find(
                 By.XPATH, '//*[@id="baseForm:putRadioButton"]'
             ).click()
-        time.sleep(1)
+        time.sleep(2)
 
     def _set_transaction_type(self, action: ActionType) -> None:
         self._chrome_inst.find(
@@ -205,12 +205,13 @@ class Vanguard(Broker):
         ).click()
 
         idx = 1
+        formatted_strike = "{0:,.2f}".format(float(strike))
         while idx < 1000:
             try:
                 strike_input = self._chrome_inst.find(
                     By.XPATH, f'//*[@id="baseForm:strikePriceSelectOne:{idx}"]'
                 )
-                if strike_input.text[1:] == strike:
+                if strike_input.text[1:] == formatted_strike:
                     strike_input.click()
                     break
             except:
