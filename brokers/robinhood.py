@@ -244,13 +244,37 @@ class Robinhood(Broker):
             order.expiration,
         )
 
-    def _buy_put_option(self, order: OptionOrder) -> Any:
-        return NotImplementedError
-        # return self._perform_option_trade(ActionType.OPEN, OptionType.PUT, sym, limit_price, strike, expiration)
+    def _buy_put_option(self, order: OptionOrder) -> dict:
+        limit_price = round(
+            float(self._get_option_data(order).ask) * 1.03,
+            2,
+        )
+        limit_price = self._handle_option_tick_size(ActionType.OPEN, limit_price)
 
-    def _sell_put_option(self, order: OptionOrder) -> Any:
-        return NotImplementedError
-        # return self._perform_option_trade(ActionType.CLOSE, OptionType.PUT, sym, limit_price, strike, expiration)
+        return self._perform_option_trade(
+            ActionType.OPEN,
+            OptionType.PUT,
+            order.sym,
+            limit_price,
+            float(order.strike),
+            order.expiration,
+        )
+
+    def _sell_put_option(self, order: OptionOrder) -> dict:
+        limit_price = round(
+            float(self._get_option_data(order).bid) * 0.97,
+            2,
+        )
+        limit_price = self._handle_option_tick_size(ActionType.CLOSE, limit_price)
+
+        return self._perform_option_trade(
+            ActionType.CLOSE,
+            OptionType.PUT,
+            order.sym,
+            limit_price,
+            float(order.strike),
+            order.expiration,
+        )
 
     def _perform_option_trade(
         self,
