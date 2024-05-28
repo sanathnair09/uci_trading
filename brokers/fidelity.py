@@ -305,9 +305,10 @@ class Fidelity(Broker):
         dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="strike_dropdown"]')
         dropdown.click()
         time.sleep(1)
+        formatted_strike = "{0:,.2f}".format(float(strike))
         strike_entry = self._chrome_inst.find(
             By.XPATH,
-            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[contains(text(), "{strike}")]',
+            f'//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[5]/div/div/button[contains(text(), "{formatted_strike}")]',
         )
         self._chrome_inst.scroll_to_element(strike_entry)
         strike_entry.click()
@@ -662,18 +663,18 @@ class Fidelity(Broker):
         df = pd.read_html(StringIO(opened))
 
         # get the data from the individual split dfs and put them into a list
-        prices = []
+        data = []
         for idx, temp in enumerate(df):
             splits = temp.iloc[:-1].to_numpy()
             length = splits.shape[0]
             identifier = np.empty((length, 1))
             identifier.fill(idx)
             updated = np.hstack((splits, identifier))
-            prices.append(updated)
+            data.append(updated)
 
         # combine all the rows into one
-        res = prices[0]
-        for x in prices[1:]:
+        res = data[0]
+        for x in data[1:]:
             res = np.append(res, x, axis=0)
 
         # create a df with split info

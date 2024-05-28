@@ -36,7 +36,7 @@ from utils.report.report import (
     OptionData,
 )
 from utils.selenium_helper import CustomChromeInstance
-from utils.util import repeat_on_fail
+from utils.util import parse_option_string, repeat_on_fail
 
 
 _ETradeOrderInfo = namedtuple(
@@ -366,11 +366,14 @@ class ETrade(Broker):
         return self._option_helper(order, ActionType.CLOSE)
 
     def _option_helper(self, order: OptionOrder, action_type: ActionType) -> str:
+        sym = order.sym
+        if order.sym == "SPX":
+            sym = "SPXW"
         order_action = "BUY_OPEN" if action_type == ActionType.OPEN else "SELL_CLOSE"
         call_put = "CALL" if order.option_type == OptionType.CALL else "PUT"
         res = self._orders.place_option_order(
             accountIdKey=self._account_id,
-            symbol=order.sym,
+            symbol=sym,
             strikePrice=float(order.strike),
             orderAction=order_action,
             callPut=call_put,
