@@ -60,6 +60,10 @@ class StockOrder:
 
 @dataclass
 class OptionOrder:
+    """
+    expiration: YYYY-MM-DD
+    """
+
     sym: str
     option_type: OptionType
     strike: str
