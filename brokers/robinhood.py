@@ -226,6 +226,7 @@ class Robinhood(Broker):
             limit_price,
             float(order.strike),
             order.expiration,
+            order.quantity,
         )
 
     def _sell_call_option(self, order: OptionOrder) -> dict:
@@ -242,6 +243,7 @@ class Robinhood(Broker):
             limit_price,
             float(order.strike),
             order.expiration,
+            order.quantity,
         )
 
     def _buy_put_option(self, order: OptionOrder) -> dict:
@@ -258,6 +260,7 @@ class Robinhood(Broker):
             limit_price,
             float(order.strike),
             order.expiration,
+            order.quantity,
         )
 
     def _sell_put_option(self, order: OptionOrder) -> dict:
@@ -274,6 +277,7 @@ class Robinhood(Broker):
             limit_price,
             float(order.strike),
             order.expiration,
+            order.quantity,
         )
 
     def _perform_option_trade(
@@ -284,6 +288,7 @@ class Robinhood(Broker):
         limit_price: float,
         strike: float,
         expiration: str,
+        quantity: int,
     ) -> dict:
         """
         expiration: "YYYY-MM-DD"
@@ -304,7 +309,7 @@ class Robinhood(Broker):
                 creditOrDebit="debit",
                 price=limit_price,
                 symbol=sym,
-                quantity=1,
+                quantity=quantity,
                 expirationDate=expiration,
                 strike=strike,
                 optionType=option_type,
@@ -317,7 +322,7 @@ class Robinhood(Broker):
                 creditOrDebit="credit",
                 price=limit_price,
                 symbol=sym,
-                quantity=1,
+                quantity=quantity,
                 expirationDate=expiration,
                 strike=strike,
                 optionType=option_type,
@@ -412,6 +417,7 @@ class Robinhood(Broker):
                 order.option_type,
                 order.expiration,
                 action_type,
+                order.quantity,
                 None,  # (RH price is added when generating report)
                 pre_stock_data,
                 post_stock_data,

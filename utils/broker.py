@@ -69,6 +69,7 @@ class OptionOrder:
     strike: str
     expiration: str
     order_type: OrderType = OrderType.MARKET
+    quantity: int = 1
 
     def formatted_expiration(self) -> str:
         return datetime.strptime(self.expiration, "%Y-%m-%d").strftime("%m/%d/%Y")

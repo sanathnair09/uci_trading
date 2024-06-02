@@ -86,6 +86,7 @@ class Schwab(Broker):
                 order.option_type,
                 order.expiration,
                 action_type,
+                order.quantity,
                 None,
                 pre_stock_data,
                 post_stock_data,
@@ -427,11 +428,18 @@ class Schwab(Broker):
         self._set_symbol(order.sym)
         self._set_trading_type(order)
         self._set_action(action)
+        self._set_quantity(order.quantity)
         self._enter_option_string(order)
         self._choose_order_type(order)
         self._review_order()
         self._place_order()
         self._new_order()
+
+    def _set_quantity(self, quantity: int) -> None:
+        amount_elem = self._chrome_inst.find(
+            By.XPATH, '//*[@id="ordernumber01inputqty-stepper-input"]'
+        )
+        self._chrome_inst.sendKeyboardInput(amount_elem, str(quantity))
 
     def _place_order(self) -> None:
         time.sleep(1)
@@ -517,6 +525,47 @@ class Schwab(Broker):
 
 
 if __name__ == "__main__":
+    exclude = {
+        "01/02/2024",
+        "01/03/2024",
+        "01/04/2024",
+        "01/05/2024",
+        "01/08/2024",
+        "01/09/2024",
+        "01/10/2024",
+        "01/11/2024",
+        "01/12/2024",
+        "01/16/2024",
+        "01/17/2024",
+        "01/18/2024",
+        "01/19/2024",
+        "01/22/2024",
+        "01/23/2024",
+        "01/24/2024",
+        "01/25/2024",
+        "01/30/2024",
+        "01/31/2024",
+        "02/01/2024",
+        "02/02/2024",
+        "02/05/2024",
+        "02/14/2024",
+        "02/15/2024",
+        "02/16/2024",
+        "02/21/2024",
+        "02/22/2024",
+        "02/23/2024",
+        "02/26/2024",
+        "03/08/2024",
+        "03/11/2024",
+        "03/12/2024",
+        "03/19/2024",
+        "03/25/2024",
+        "03/26/2024",
+        "03/27/2024",
+        "04/02/2024",
+        "04/09/2024",
+        "04/16/2024",
+    }
     original_reports = Path("/Users/sanathnair/Developer/trading/reports/original")
     dates = set()
     for file in original_reports.iterdir():
@@ -531,5 +580,5 @@ if __name__ == "__main__":
             existing.add(f"{date[:-4]}/2024")
     s = Schwab(Path("temp.csv"), BrokerNames.SB, Path("temp_option.csv"))
     s.login()
-    s.download_trade_data(list(dates - existing))
+    s.download_trade_data(list(dates - existing - exclude))
     pass

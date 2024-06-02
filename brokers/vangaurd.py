@@ -128,7 +128,7 @@ class Vanguard(Broker):
         self._set_symbol(order.sym)
         self._set_expiration(order.expiration)
         self._set_strike(order.strike)
-        self._set_quantity()
+        self._set_quantity(order.quantity)
         self._set_price(order, action)
         self._set_day()
         self._place_order()
@@ -140,7 +140,7 @@ class Vanguard(Broker):
         self._set_transaction_type(action)
         time.sleep(2)
         self._find_option_to_sell(order)
-        self._set_quantity()
+        self._set_quantity(order.quantity)
         self._set_price(order, action)
         self._set_day()
         self._place_order(action)
@@ -219,11 +219,11 @@ class Vanguard(Broker):
             idx += 1
         time.sleep(1)
 
-    def _set_quantity(self) -> None:
-        quantity = self._chrome_inst.find(
+    def _set_quantity(self, quantity: int) -> None:
+        elem = self._chrome_inst.find(
             By.XPATH, '//*[@id="baseForm:shareQuantityTextField"]'
         )
-        self._chrome_inst.sendKeyboardInput(quantity, "1")
+        self._chrome_inst.sendKeyboardInput(elem, str(quantity))
 
     def _set_price(self, order: OptionOrder, action: ActionType) -> None:
         price_input = self._chrome_inst.find(
@@ -262,10 +262,9 @@ class Vanguard(Broker):
             By.XPATH, '//*[@id="baseForm:submitButtonInput"]'
         ).click()
         time.sleep(1)
-        self._chrome_inst.find(
-            By.XPATH,
-            '//*[@id="baseForm:whatToDoNextDeck:doAnotherTransactionDeckCard"]/p[7]/a',
-        ).click()
+        self._chrome_inst.open(
+            "https://personal.vanguard.com/us/TradeTicket?accountId=258586230212504&investmentType=OPTION"
+        )
 
     def _find_option_to_sell(self, order: OptionOrder) -> None:
         def check_option(option_text: str) -> bool:
@@ -337,6 +336,7 @@ class Vanguard(Broker):
                 order.option_type,
                 order.expiration,
                 action_type,
+                order.quantity,
                 None,
                 pre_stock_data,
                 post_stock_data,

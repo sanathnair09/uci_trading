@@ -277,7 +277,8 @@ def combine_schwab_data(
             res = pd.merge(
                 df_sb,
                 sb_df_options,
-                on=["Symbol", "Action", "Option Type"],
+                left_on=["Trade Size", "Symbol", "Action", "Option Type"],
+                right_on=["Size", "Symbol", "Action", "Option Type"],
                 how="outer",
                 suffixes=(None, "_y"),
             )
@@ -346,7 +347,9 @@ def combine_fidelity_data(
     if fd_df is not None:
         df_fd = df.loc[df["Broker"] == "FD"]
         if option:
-            fd_df_equities = fd_df[fd_df["Option Type"].notna()]
+            fd_df_equities = fd_df[
+                fd_df["Option Type"].notna() & fd_df["Split"] == False
+            ]
             fd_df_equities.loc[:, "Option Type"] = fd_df_equities.loc[
                 :, "Option Type"
             ].str[0]
@@ -389,6 +392,53 @@ def combine_fidelity_data(
                     "Broker Executed_y",
                 ]
             )
+            fd_df_options = fd_df[fd_df["Option Type"].notna() & fd_df["Split"] == True]
+            if fd_df_options.shape[0] != 0:
+                df_fd["Split"] = False
+                fd_df_options.rename(columns={"Size": "Trade Size"}, inplace=True)
+                splits = pd.DataFrame(columns=df_fd.columns)
+                indices = []
+                cols = [
+                    "Broker Executed",
+                    "Price",
+                    "Dollar Amt",
+                    "Trade Size",
+                    "Split",
+                    "Symbol",
+                    "Action",
+                ]
+                index_col = [df_fd.columns.get_loc(col) for col in cols]
+                for _, row in fd_df_options.iterrows():
+                    report_row = df_fd[
+                        (df_fd["Symbol"] == row["Symbol"])
+                        & (df_fd["Action"] == row["Action"])
+                        & (df_fd["Trade Size"] >= 1)
+                    ].copy()
+                    if report_row.shape[0] != 0:
+                        indices.append(report_row.index[0])
+                        report_row.iloc[0, index_col] = row[cols]
+                        # report_row[
+                        #     ["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]
+                        # ] = row[["Broker Executed", "Price", "Dollar Amt", "Size", "Split"]]
+                        splits = pd.concat(
+                            [splits, report_row], axis=0, ignore_index=True
+                        )
+                    else:
+                        data = (
+                            df_fd[
+                                (df_fd["Action"] == row["Action"])
+                                & (df_fd["Size"] >= 1)
+                            ]
+                            .iloc[[0]]
+                            .copy()
+                        )
+                        data[:] = np.nan
+                        data[cols] = row[cols]
+                        data["Order Type"] = "Market"
+                        splits = pd.concat([splits, data], axis=0, ignore_index=True)
+
+                res = pd.concat([res, splits], axis=0, ignore_index=True)
+
         else:
             fd_df_equities = fd_df[(fd_df["Option Type"].isna())]
             fd_df_equities_no_split = fd_df_equities[fd_df_equities["Split"] == False]

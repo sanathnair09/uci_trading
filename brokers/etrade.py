@@ -380,7 +380,7 @@ class ETrade(Broker):
             expiryDate=order.expiration,
             clientOrderId=str(randint(100000, 999999)),
             priceType="MARKET",
-            quantity=1,
+            quantity=order.quantity,
             orderTerm="GOOD_FOR_DAY",
             marketSession="REGULAR",
         )
@@ -472,6 +472,7 @@ class ETrade(Broker):
                 order.option_type,
                 order.expiration,
                 action_type,
+                order.quantity,
                 order_data.price,
                 pre_stock_data,
                 post_stock_data,

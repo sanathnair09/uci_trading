@@ -4,10 +4,19 @@ from datetime import datetime, timedelta
 from pyexpat import ExpatError
 from typing import Any, Optional, Union, cast
 
+from flask.scaffold import F
 import schedule
 from loguru import logger
 
-from brokers import Robinhood, Fidelity, ETrade, TDAmeritrade, Schwab, Vanguard, IBKR
+from brokers import (
+    BASE_PATH,
+    Robinhood,
+    Fidelity,
+    ETrade,
+    Schwab,
+    Vanguard,
+    IBKR,
+)
 from utils.broker import Broker, OptionOrder, StockOrder
 from utils.market_data import MarketData
 from utils.program_manager import ProgramManager, SYM_LIST_LEN, SYM_LIST
@@ -342,24 +351,14 @@ class AutomatedTrading:
             self._perform_action(brokers, cast(list[StockOrder], orders), action)
 
     @staticmethod
-    def generate_report(*, version: int = 0) -> None:
+    def generate_reports(dates: list[str], *, version: int = 0) -> None:
         processor = PostProcessing(version)
         # processor.generate_report(f"reports/original/report_xx_xx.csv")
-        processor.generate_report(f"reports/original/report_02_08.csv")
-
-    @staticmethod
-    def generate_option_report(*, version: int = 0) -> None:
-        processor = PostProcessing(version)
-        # processor.generate_option_report(f"reports/original/option_report_xx_xx.csv")
-        # processor.generate_report(f"reports/original/option_report_05_13.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_15.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_16.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_17.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_20.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_21.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_22.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_23.csv", True)
-        # processor.generate_report(f"reports/original/option_report_05_24.csv", True)
+        for date in dates:
+            equity_path = BASE_PATH / f"reports/original/report_{date}.csv"
+            option_path = BASE_PATH / f"reports/original/option_report_{date}.csv"
+            processor.generate_report(str(equity_path))
+            processor.generate_report(str(option_path), True)
 
 
 if __name__ == "__main__":

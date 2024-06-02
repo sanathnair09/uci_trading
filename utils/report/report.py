@@ -101,6 +101,7 @@ class OptionReportEntry:
     option_type: OptionType  # Call or Put
     expiration: str
     action: ActionType  # Buy or Sell
+    quantify: int
     price: Optional[float]  # price of a share when bought/sold
     pre_stock_data: OptionData  # ask, bid, quote, vol, greeks before placing order
     post_stock_data: OptionData  # ask, bid, quote, vol after, greeks placing order
@@ -111,7 +112,7 @@ class OptionReportEntry:
     broker: BrokerNames
 
     def __str__(self) -> str:
-        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.strike},{self.option_type.value[0].upper()},{self.expiration},1,{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
+        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.strike},{self.option_type.value[0].upper()},{self.expiration},{self.quantify},{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
 
 
 def format_quote_data(pre: StockData, post: StockData) -> str:

@@ -200,22 +200,42 @@ class Fidelity(Broker):
 
     def _buy_call_option(self, order: OptionOrder) -> None:
         self._option_helper(
-            order.sym, OptionType.CALL, order.strike, order.expiration, ActionType.OPEN
+            order.sym,
+            OptionType.CALL,
+            order.strike,
+            order.expiration,
+            ActionType.OPEN,
+            order.quantity,
         )
 
     def _sell_call_option(self, order: OptionOrder) -> None:
         self._option_helper(
-            order.sym, OptionType.CALL, order.strike, order.expiration, ActionType.CLOSE
+            order.sym,
+            OptionType.CALL,
+            order.strike,
+            order.expiration,
+            ActionType.CLOSE,
+            order.quantity,
         )
 
     def _buy_put_option(self, order: OptionOrder) -> None:
         self._option_helper(
-            order.sym, OptionType.PUT, order.strike, order.expiration, ActionType.OPEN
+            order.sym,
+            OptionType.PUT,
+            order.strike,
+            order.expiration,
+            ActionType.OPEN,
+            order.quantity,
         )
 
     def _sell_put_option(self, order: OptionOrder) -> None:
         self._option_helper(
-            order.sym, OptionType.PUT, order.strike, order.expiration, ActionType.CLOSE
+            order.sym,
+            OptionType.PUT,
+            order.strike,
+            order.expiration,
+            ActionType.CLOSE,
+            order.quantity,
         )
 
     def _option_helper(
@@ -225,10 +245,11 @@ class Fidelity(Broker):
         strike_price: str,
         expiration_date: str,
         action: ActionType,
+        quantity: int,
     ) -> None:
         self._choose_option_symbol(sym)
         self._choose_option_action(action)
-        self._set_option_quantity()
+        self._set_option_quantity(quantity)
         self._chose_option_order_type(option_type)
         self._set_option_expiration(expiration_date)
         self._set_strike_price(strike_price)
@@ -272,9 +293,9 @@ class Fidelity(Broker):
                 '//*[@id="init-form"]/div[2]/trade-option-init/div/div[3]/div/div[1]/div/div/button[4]',
             ).click()
 
-    def _set_option_quantity(self) -> None:
-        quantity = self._chrome_inst.find(By.XPATH, '//*[@id="dest-quantity"]')
-        self._chrome_inst.sendKeyboardInput(quantity, "1")
+    def _set_option_quantity(self, quantity) -> None:
+        elem = self._chrome_inst.find(By.XPATH, '//*[@id="dest-quantity"]')
+        self._chrome_inst.sendKeyboardInput(elem, str(quantity))
 
     def _chose_option_order_type(self, optionType: OptionType) -> None:
         if optionType == OptionType.CALL:
@@ -479,6 +500,7 @@ class Fidelity(Broker):
                 order.option_type,
                 order.expiration,
                 action_type,
+                order.quantity,
                 None,  # fidelity price added during post processing
                 pre_stock_data,
                 post_stock_data,
@@ -589,7 +611,7 @@ class Fidelity(Broker):
             pass
 
         opened = self._chrome_inst.get_page_source()
-
+        input("Finished downloading as PDF")
         # save_string_to_file(unopened, "unopened.html")
         # save_string_to_file(opened, "opened.html")
 
@@ -636,9 +658,10 @@ class Fidelity(Broker):
         soup = BeautifulSoup(unopened_html, "html.parser")
         class_to_find = "pvd-grid__grid pvd-grid__grid--default-column-span-12"
         data = soup.find_all(class_=class_to_find)
+        keywords = {"Contract", "Contracts"}
         for row in data:
             text = row.get_text(strip=True).split()
-            if text[3] != "Contract":
+            if text[3] not in keywords:
                 row_info = Fidelity._create_row(text[4], text[0])
             else:
                 row_info = Fidelity._create_row(

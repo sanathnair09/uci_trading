@@ -1,6 +1,19 @@
 from brokers.trading import AutomatedTrading
+from utils.broker import OptionOrder
 from utils.report.report import ActionType
 from utils.util import parse_option_string
+
+
+def get_6_contract_trades() -> list[OptionOrder]:
+    orders = [
+        parse_option_string(""),
+        parse_option_string(""),
+        parse_option_string(""),
+        parse_option_string(""),
+    ]
+    for order in orders:
+        order.quantity = 6
+    return orders
 
 
 if __name__ == "__main__":
@@ -18,5 +31,4 @@ if __name__ == "__main__":
     #     ],
     #     ActionType.CLOSE,
     # )
-    # AutomatedTrading.generate_report()
-    # AutomatedTrading.generate_option_report()
+    # AutomatedTrading.generate_reports([""])
