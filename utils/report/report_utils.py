@@ -72,7 +72,7 @@ def get_robinhood_option_data(row: pd.Series) -> pd.Series:
     row["Price"] = price
     row["Dollar Amt"] = round(price * quantity * 100, 4)
     row["Strike"] = order_data["legs"][0]["strike_price"]
-    row["Option Type"] = order_data["legs"][0]["option_type"].capitalize()
+    row["Option Type"] = order_data["legs"][0]["option_type"][0].capitalize()
     row["Expiration"] = order_data["legs"][0]["expiration_date"]
     return row
 

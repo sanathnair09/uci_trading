@@ -104,15 +104,16 @@ class PostProcessing:
                 )
                 row["Price"] = split["Price"]
                 row["Dollar Amt"] = split["Dollar Amt"]
+                row["Split"] = is_split
                 if not option:
                     row["Size"] = split["Size"]
-                    row["Split"] = is_split
                 else:
+                    row["Trade Size"] = split["Size"]
                     row["Strike"] = split["Strike"]
                     row["Expiration"] = pd.to_datetime(
                         split["Expiration"], format="%m/%d/%Y"
                     )
-                    row["Option Type"] = split["Option Type"]
+                    row["Option Type"] = split["Option Type"].str[0]
                 new_ets = pd.concat([new_ets, row.to_frame().T], ignore_index=False)
         logger.info("Done Etrade")
         return pd.concat([df, new_ets], ignore_index=False)
