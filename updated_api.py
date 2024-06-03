@@ -1,6 +1,5 @@
 from brokers.trading import AutomatedTrading
 from utils.broker import OptionOrder
-from utils.report.report import ActionType
 from utils.util import parse_option_string
 
 
@@ -31,4 +30,4 @@ if __name__ == "__main__":
     #     ],
     #     ActionType.CLOSE,
     # )
-    # AutomatedTrading.generate_reports([""])
+    # AutomatedTrading.generate_reports([""], equity=False, option=True)

@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from pyexpat import ExpatError
 from typing import Any, Optional, Union, cast
 
-from flask.scaffold import F
 import schedule
 from loguru import logger
 
@@ -28,6 +27,7 @@ from utils.util import (
     parse_stock_list,
     process_option_input,
 )
+
 
 EQUITY_BROKERS = ["TD", "RH", "E2", "FD", "SB"]
 FRAC_BROKERS = ["FD", "IF", "RH"]
@@ -351,14 +351,18 @@ class AutomatedTrading:
             self._perform_action(brokers, cast(list[StockOrder], orders), action)
 
     @staticmethod
-    def generate_reports(dates: list[str], *, version: int = 0) -> None:
+    def generate_reports(
+        dates: list[str], equity: bool = True, option: bool = True, *, version: int = 0
+    ) -> None:
         processor = PostProcessing(version)
         # processor.generate_report(f"reports/original/report_xx_xx.csv")
         for date in dates:
             equity_path = BASE_PATH / f"reports/original/report_{date}.csv"
             option_path = BASE_PATH / f"reports/original/option_report_{date}.csv"
-            processor.generate_report(str(equity_path))
-            processor.generate_report(str(option_path), True)
+            if equity:
+                processor.generate_report(str(equity_path))
+            if option:
+                processor.generate_report(str(option_path), True)
 
 
 if __name__ == "__main__":
