@@ -275,7 +275,7 @@ class Vanguard(Broker):
                 return False
             if parts[2] != order.option_type.value[0].upper():
                 return False
-            if parts[3][1:] != order.strike:
+            if float(parts[3][1:]) != float(order.strike):
                 return False
             return True
 
