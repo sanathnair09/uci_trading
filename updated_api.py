@@ -3,18 +3,6 @@ from utils.broker import OptionOrder
 from utils.util import parse_option_string
 
 
-def get_6_contract_trades() -> list[OptionOrder]:
-    orders = [
-        parse_option_string(""),
-        parse_option_string(""),
-        parse_option_string(""),
-        parse_option_string(""),
-    ]
-    for order in orders:
-        order.quantity = 6
-    return orders
-
-
 if __name__ == "__main__":
     """
     stock market hours (PST): 6:30 - 1:00
