@@ -9,6 +9,7 @@ data/
 .env
 api.py
 token
+token_sb
 brokers/temp.csv
 *.pyc
 previous_program_info.json
