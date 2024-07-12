@@ -122,7 +122,8 @@ class AutomatedTrading:
         while count > 0 and sell_time < SELL_TIME_LIMIT:
             # chooses next 4 stocks to trade
             sym_list = SYM_LIST[current_idx : current_idx + 4]
-            # sym_list = [sym for sym in sym_list if MarketData.validate_stock(sym)]
+            # added a check to make sure that the SYM is valid
+            sym_list = [sym for sym in sym_list if MarketData.validate_stock(sym)]
 
             logger.info(sym_list)
             logger.info(f"Buying at: {buy_time.strftime('%H:%M')}")

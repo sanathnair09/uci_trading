@@ -33,6 +33,10 @@ ETRADE2_ACCOUNT_ID_KEY = os.getenv("ETRADE2_ACCOUNT_ID_KEY", "")
 
 SCHWAB_LOGIN = os.getenv("SCHWAB_LOGIN", "")
 SCHWAB_PASSWORD = os.getenv("SCHWAB_PASSWORD", "")
+SCHWAB_URI = os.getenv("SCHWAB_URI", "")
+SCHWAB_TOKEN_PATH = os.getenv("SCHWAB_TOKEN_PATH", "")
+SCHWAB_APP_KEY = os.getenv("SCHWAB_APP_KEY", "")
+SCHWAB_APP_SECRET = os.getenv("SCHWAB_APP_SECRET", "")
 
 FIDELITY_LOGIN = os.getenv("FIDELITY_LOGIN", "")
 FIDELITY_PASSWORD = os.getenv("FIDELITY_PASSWORD", "")
@@ -46,7 +50,7 @@ VANGUARD_PASSWORD = os.getenv("VANGUARD_PASSWORD", "")
 from .td_ameritrade import TDAmeritrade
 from .robinhood import Robinhood
 from .etrade import ETrade
-from .schwab import Schwab
+from .schwab2 import Schwab
 from .fidelity import Fidelity
 from .ibkr import IBKR
 from .vangaurd import Vanguard

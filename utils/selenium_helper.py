@@ -105,5 +105,5 @@ class CustomChromeInstance:
 
 
 if __name__ == "__main__":
-    c = CustomChromeInstance()
+    c = CustomChromeInstance(undetected=True)
     c.open("https://www.google.com")

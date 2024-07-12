@@ -21,7 +21,7 @@ SYM_LIST = [
     "AMPS", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
     "BAC", "ROOT", "JNPR", "UNF", "TRV", "AMTB", "TDG", "V", "ASB", "MSI",
     "PACK", "CPK", "OPRT", "F", "BND", "ALB", "GO", "SHLS", "AMTX", "GRWG",
-    "APT", "RAVE", "WTFC", "CVLY", "WBS", "TCRX", "RWOD", "NEPH", "GWRE", "ARC",
+    "APT", "RAVE", "WTFC", "CVLY", "WBS", "TCRX",  "NEPH", "GWRE", "ARC", # RWOd removed 06/24
     "AGX", "ODFL", "QQQ", "INBX", "SCHL", "BATL", "ZUMZ", "AMC", "PRTH", "MKTX",
     "SSNC", "AAP", "RAMP", "AGL", "FFIV", "CELC", "LUNG", "UBER", "PROV", "RDI", # removed NSTB 2/8/24
     "PVH", "TSVT", "BBSI",  "PLPC", "IFF", "INZY", "CSX",  "AMZN", "EWTX",
@@ -34,7 +34,7 @@ REPORT_COLUMNS = [
     'Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
     'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
     'Pre Bid', 'Pre Ask', 'Post Bid', 'Post Ask', 'Pre Volume', 'Post Volume',
-    'Order Type', 'Split', 'Order ID', 'Activity ID'
+    'Order Type', 'Split', 'Order ID', 'Activity ID', "Destination"
     ]
 
 OPTION_REPORT_COLUMNS = [
