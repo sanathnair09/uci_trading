@@ -1,5 +1,6 @@
 from brokers.trading import AutomatedTrading
-from utils.broker import OptionOrder
+from utils.broker import OptionOrder, StockOrder
+from utils.report.report import ActionType
 from utils.util import parse_option_string
 
 
@@ -14,8 +15,12 @@ if __name__ == "__main__":
     # trader.sell_leftover_positions()
     # trader.manual_override(
     #     [
-    #         parse_option_string(""),
+    #         parse_option_string("")
     #     ],
     #     ActionType.CLOSE,
     # )
-    # AutomatedTrading.generate_reports([""], equity=False, option=True)
+    # AutomatedTrading.generate_reports(
+    #     [],
+    #     equity=True,
+    #     option=True,
+    # )

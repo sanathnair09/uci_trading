@@ -2,7 +2,7 @@ numpy==1.26.4
 pandas==2.2.1
 pytz==2024.1
 loguru==0.7.2
-selenium==4.19.0
+selenium==4.21.0
 schedule==1.2.1
 pyetrade==1.4.1
 python-dotenv==1.0.1
