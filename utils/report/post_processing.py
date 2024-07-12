@@ -94,9 +94,13 @@ class PostProcessing:
         for _, row in ets.iterrows():
             orderId = cast(str, row["Order ID"])
             if not option:
-                etrade_df, is_split = et.get_order_data(orderId)
+                etrade_df, is_split = et.get_order_data(
+                    int(orderId), row["Symbol"], row["Action"].capitalize()
+                )
             else:
-                etrade_df, is_split = et.get_option_order_data(orderId)
+                etrade_df, is_split = et.get_option_order_data(
+                    int(orderId), row["Symbol"], row["Action"].capitalize()
+                )
 
             for _, split in etrade_df.iterrows():
                 row["Broker Executed"] = convert_int64_utc_to_pst(
@@ -113,7 +117,7 @@ class PostProcessing:
                     row["Expiration"] = pd.to_datetime(
                         split["Expiration"], format="%m/%d/%Y"
                     )
-                    row["Option Type"] = split["Option Type"].str[0]
+                    # row["Option Type"] = split["Option Type"].str[0]
                 new_ets = pd.concat([new_ets, row.to_frame().T], ignore_index=False)
         logger.info("Done Etrade")
         return pd.concat([df, new_ets], ignore_index=False)

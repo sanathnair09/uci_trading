@@ -112,7 +112,6 @@ class ETrade(Broker):
         except Exception as e:
             # chrome_inst.quit()
             logger.error("Error logging in automatically. Trying Manually...")
-            # print("Error logging in automatically. Trying Manually...")
             oauth = pyetrade.ETradeOAuth(self._consumer_key, self._consumer_secret)
             print(oauth.get_request_token())  # Use the printed URL
             verifier_code = input("Enter verification code: ")
@@ -153,22 +152,41 @@ class ETrade(Broker):
             float(quote["All"]["totalVolume"]),
         )
 
-    def get_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
+    def get_order_data(
+        self, orderId: int, symbol: str, action: str
+    ) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
+            securityType="EQ",
+            symbol=symbol,
+            transactionType=action,
         )
-        events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
+
+        events = None
+
+        if "Order" not in data["OrdersResponse"]:
+            logger.error(data)
+            return pd.DataFrame(), False
+
+        for event in data["OrdersResponse"]["Order"]:
+            if event["orderId"] == orderId:
+                events = event["OrderDetail"]
+                break
+
+        if events is None:
+            logger.error("Order not found")
+            raise ValueError("Order not found")
 
         splits_df = pd.DataFrame()
         for event in events:
-            if event["name"] == "ORDER_EXECUTED":
+            if event["status"] == "EXECUTED":
                 size = event["Instrument"][0]["filledQuantity"]
                 price = event["Instrument"][0]["averageExecutionPrice"]
                 info = pd.Series(
                     {
-                        "Broker Executed": event["dateTime"],
+                        "Broker Executed": event["executedTime"],
                         "Size": size,
                         "Price": price,
                         "Action": event["Instrument"][0]["orderAction"],
@@ -179,23 +197,41 @@ class ETrade(Broker):
 
         return splits_df, (splits_df.shape[0] > 1)
 
-    def get_option_order_data(self, orderId: str) -> tuple[pd.DataFrame, bool]:
+    def get_option_order_data(
+        self, orderId: int, symbol: str, action: str
+    ) -> tuple[pd.DataFrame, bool]:
         data = self._orders.list_orders(
             account_id_key=self._account_id,
             resp_format="json",
             orderId=str(orderId),
+            securityType="OPTN",
+            symbol=symbol,
+            transactionType=action,
         )
-        events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
+
+        events = None
+
+        for event in data["OrdersResponse"]["Order"]:
+            if event["orderId"] == orderId:
+                events = event["OrderDetail"]
+                break
+
+        if events is None:
+            logger.error("Order not found")
+            raise ValueError("Order not found")
+
+
+        # events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
         splits_df = pd.DataFrame()
         for event in events:
-            if event["name"] == "ORDER_EXECUTED":
+            if event["status"] == "EXECUTED":
                 size = event["Instrument"][0]["filledQuantity"]
                 price = event["Instrument"][0]["averageExecutionPrice"]
                 product = event["Instrument"][0]["Product"]
                 expiration = f'{product["expiryMonth"]}/{product["expiryDay"]}/{product["expiryYear"]}'
                 row_data = {
-                    "Broker Executed": event["dateTime"],
+                    "Broker Executed": event["executedTime"],
                     "Size": size,
                     "Price": price,
                     "Action": event["Instrument"][0]["orderAction"],
@@ -556,4 +592,6 @@ class ETrade(Broker):
 if __name__ == "__main__":
     et = ETrade(Path("temp.csv"), BrokerNames.E2, Path("temp_option.csv"))
     et.login()
+    res = et.get_option_order_data(14470, "TSM", "BUY")
+    print(res)
     pass

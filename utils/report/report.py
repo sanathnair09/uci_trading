@@ -86,9 +86,10 @@ class ReportEntry:
     order_id: Optional[str]
     activity_id: Optional[str]
     broker: BrokerNames
+    destination: str = ""
 
     def __str__(self) -> str:
-        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.quantity},{self.price},{(self.dollar_amt)},{format_quote_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.split},{self.order_id},{self.activity_id}\n"
+        return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.quantity},{self.price},{(self.dollar_amt)},{format_quote_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.split},{self.order_id},{self.activity_id},{self.destination}\n"
 
 
 @dataclass
