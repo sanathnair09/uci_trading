@@ -611,7 +611,7 @@ class Fidelity(Broker):
             pass
 
         opened = self._chrome_inst.get_page_source()
-        input("Finished downloading as PDF")
+        # input("Finished downloading as PDF")
         # save_string_to_file(unopened, "unopened.html")
         # save_string_to_file(opened, "opened.html")
 

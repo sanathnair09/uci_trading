@@ -220,7 +220,6 @@ class ETrade(Broker):
             logger.error("Order not found")
             raise ValueError("Order not found")
 
-
         # events = data["OrdersResponse"]["Order"][0]["Events"]["Event"]
 
         splits_df = pd.DataFrame()
@@ -592,6 +591,4 @@ class ETrade(Broker):
 if __name__ == "__main__":
     et = ETrade(Path("temp.csv"), BrokerNames.E2, Path("temp_option.csv"))
     et.login()
-    res = et.get_option_order_data(14470, "TSM", "BUY")
-    print(res)
     pass

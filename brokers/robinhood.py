@@ -6,7 +6,7 @@ from typing import Any, Optional, Union, cast
 
 import robin_stocks.robinhood as rh  # type: ignore [import-untyped]
 
-from brokers import RH_LOGIN, RH_PASSWORD, RH_LOGIN2, RH_PASSWORD2
+from brokers import BASE_PATH, RH_LOGIN, RH_PASSWORD, RH_LOGIN2, RH_PASSWORD2
 from utils.broker import Broker, StockOrder, OptionOrder
 from utils.report.report import (
     OptionReportEntry,
@@ -374,7 +374,7 @@ class Robinhood(Broker):
         program_executed: str,
         pre_stock_data: StockData,
         post_stock_data: StockData,
-        **kwargs: Union[float, str]
+        **kwargs: Union[float, str],
     ) -> None:
         self._add_report_to_file(
             ReportEntry(
@@ -405,7 +405,7 @@ class Robinhood(Broker):
         program_executed: str,
         pre_stock_data: OptionData,
         post_stock_data: OptionData,
-        **kwargs: str
+        **kwargs: str,
     ) -> None:
         self._add_option_report_to_file(
             OptionReportEntry(
@@ -468,6 +468,23 @@ class Robinhood(Broker):
         for sym in positions:
             current_positions.append(StockOrder(sym, float(positions[sym]["quantity"])))
         return current_positions, []
+
+    def download_trade_confirmations(self) -> None:
+        documents = rh.account.get_documents()
+        if not documents:
+            return
+        dir = str(BASE_PATH / "data/rh") + "/"
+        cutoff = datetime(2023, 9, 1)
+        for doc in documents:
+            if doc["type"] == "trade_confirm":
+                year, month, day = doc["date"].split("-")
+                if datetime(int(year), int(month), int(day)) < cutoff:
+                    continue    
+                filename = f"rh_{month}_{day}_{year[2:]}"
+                try:
+                    rh.account.download_document(doc["download_url"], filename, dir)
+                except:
+                    print(f"Error downloading {filename}")
 
 
 if __name__ == "__main__":
