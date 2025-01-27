@@ -7,7 +7,9 @@ import pandas as pd
 import robin_stocks.robinhood as rh  # type: ignore[import-untyped]
 from loguru import logger
 from pytz import utc, timezone
-
+from brokers import (
+    BASE_PATH,
+)
 from utils.report.report import ActionType
 
 
@@ -35,9 +37,14 @@ def get_robinhood_data(row: pd.Series) -> pd.Series:
             order_data["executions"][0]["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ"
         )
     except:
-        utc_time = datetime.strptime(
-            order_data["executions"][0]["timestamp"], "%Y-%m-%dT%H:%M:%SZ"
-        )
+        # print(order_data)
+        try:
+            utc_time = datetime.strptime(
+                order_data["executions"][0]["timestamp"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+        except:
+            # print("HERE")
+            return row
     now_aware = utc.localize(utc_time)
     pst = now_aware.astimezone(timezone("US/Pacific"))
     row["Broker Executed"] = pst.strftime("%I:%M:%S")
@@ -180,12 +187,13 @@ def create_datetime_from_string(date_string: str) -> datetime:
     if isinstance(date_string, Path):
         date_string = str(date_string)
     parts = date_string.split("_")
+    logger.info(parts)
     try:
-        month = int(parts[1])
-        day = int(parts[2][:2])
-    except:  # option report
         month = int(parts[2])
         day = int(parts[3][:2])
+    except:  # option report
+        month = int(parts[3])
+        day = int(parts[4][:2])
 
     # Create a datetime object with the extracted month and day
     datetime_obj = datetime(datetime.now().year, month, day)
@@ -193,6 +201,8 @@ def create_datetime_from_string(date_string: str) -> datetime:
 
 
 def format_df_dates(df: pd.DataFrame) -> pd.DataFrame:
+    df.to_csv(BASE_PATH / f"reports/tests/before_date_formatting.csv", index=False)
+    
     program_submitted_idx = cast(int, df.columns.get_loc("Program Submitted"))
     df.insert(program_submitted_idx + 1, "Program Submitted Text", "")
 
@@ -228,38 +238,42 @@ def format_df_dates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def combine_ibkr_data(df: pd.DataFrame, ib_df: Optional[pd.DataFrame]) -> pd.DataFrame:
-    if ib_df is not None:
-        logger.info(f"Combining IBKR")
-        df_if = df[df["Broker"] == "IF"]
-        res = pd.merge(
-            df_if,
-            ib_df,
-            on=["Symbol", "Action"],
-            how="outer",
-            suffixes=(None, "_y"),
-        )
-        res["Broker Executed"] = res["Broker Executed_y"]
-        res["Price"] = res["Price_y"]
-        res["Dollar Amt"] = res["Dollar Amt_y"]
-        res["Size"] = res["Size_y"]
-        res["Broker"] = "IF"
-        res["Split"] = res["Split_y"]
-        res = res.drop(
-            columns=[
-                "Size_y",
-                "Price_y",
-                "Broker Executed_y",
-                "Dollar Amt_y",
-                "Split_y",
-                "Expiration",
-                "Strike",
-                "Option Type",
-            ]
-        )
-        res = res[res["Broker Executed"].notna()]
-        df = df.drop(df_if.index)
-        df = pd.concat([df, res], axis=0, ignore_index=True)
-        logger.info("Done IBKR")
+    logger.info("Combining IBKR")
+    # if ib_df is not None:
+    #     pass
+        # logger.info(f"Combining IBKR")
+        # df_if = df[df["Broker"] == "IF"]
+        # res = pd.merge(
+        #     df_if,
+        #     ib_df,
+        #     on=["Symbol", "Action"],
+        #     how="outer",
+        #     suffixes=(None, "_y"),
+        # )
+        # res["Broker Executed"] = res["Broker Executed_y"]
+        # res["Price"] = res["Price_y"]
+        # res["Dollar Amt"] = res["Dollar Amt_y"]
+        # res["Size"] = res["Size_y"]
+        # res["Broker"] = "IF"
+        # res["Split"] = res["Split_y"]
+        # res = res.drop(
+        #     columns=[
+        #         "Size_y",
+        #         "Price_y",
+        #         "Broker Executed_y",
+        #         "Dollar Amt_y",
+        #         "Split_y",
+        #         "Expiration",
+        #         "Strike",
+        #         "Option Type",
+        #     ]
+        # )
+        # res = res[res["Broker Executed"].notna()]
+        # df = df.drop(df_if.index)
+        # df = pd.concat([df, res], axis=0, ignore_index=True)
+        # logger.info("Done IBKR")
+
+    logger.info("Done IBKR")
     return df
 
 
@@ -331,9 +345,13 @@ def combine_schwab_data(
 def combine_robinhood_data(df: pd.DataFrame, option: bool = False) -> pd.DataFrame:
     logger.info("Combining Robinhood")
 
-    df.loc[df["Broker"] == "RH"] = df.loc[df["Broker"] == "RH"].apply(
-        get_robinhood_data if not option else get_robinhood_option_data, axis=1
-    )
+    try:
+        df.loc[df["Broker"] == "RH"] = df.loc[df["Broker"] == "RH"].apply(
+            get_robinhood_data if not option else get_robinhood_option_data, axis=1
+        )
+    except:
+        logger.info("EXCEPTION FOUND")
+        pass
     if option:
         df["Expiration"] = pd.to_datetime(df["Expiration"], format="%Y-%m-%d")
     logger.info("Done Robinhood")
@@ -343,16 +361,32 @@ def combine_robinhood_data(df: pd.DataFrame, option: bool = False) -> pd.DataFra
 def combine_fidelity_data(
     df: pd.DataFrame, fd_df: Optional[pd.DataFrame], option: bool = False
 ) -> pd.DataFrame:
+    '''
+    df: original report
+    fd_df: fidelity splits we get from running fidelity.py
+    '''
     logger.info("Combining Fidelity")
     if fd_df is not None:
+ 
         df_fd = df.loc[df["Broker"] == "FD"]
+        
         if option:
+            # df_fd["Option Type"] = df_fd["Option Type"].fillna("missing")           # added to fill Option Type column to missing
+            
+            # print(fd_df)
+            # print()
             fd_df_equities = fd_df[
                 fd_df["Option Type"].notna() & fd_df["Split"] == False
             ]
+            # fd_df_equities["Option Type"] = fd_df_equities["Option Type"].fillna("missing")     # added to fill Option Type column to missing
+            # print(fd_df_equities)
+            
             fd_df_equities.loc[:, "Option Type"] = fd_df_equities.loc[
                 :, "Option Type"
             ].str[0]
+            # # fd_df_equities.loc[:, "Option Type"] = "Market"
+            # print(df_fd["Program Executed"].dtype)
+            # print(fd_df_equities["Broker Executed"].dtype)
             res = pd.merge_asof(
                 df_fd.sort_values("Program Executed"),
                 fd_df_equities.sort_values("Broker Executed"),
@@ -362,10 +396,12 @@ def combine_fidelity_data(
                 direction="nearest",
                 suffixes=(None, "_y"),
             )
+            
+            # keeping original broker executed column
             res[
                 [
                     "Price",
-                    "Broker Executed",
+                    # "Broker Executed",
                     "Dollar Amt",
                     "Strike",
                     "Expiration",
@@ -373,7 +409,7 @@ def combine_fidelity_data(
             ] = res[
                 [
                     "Price_y",
-                    "Broker Executed_y",
+                    # "Broker Executed_y",
                     "Dollar Amt_y",
                     "Strike_y",
                     "Expiration_y",
@@ -438,23 +474,34 @@ def combine_fidelity_data(
                         splits = pd.concat([splits, data], axis=0, ignore_index=True)
 
                 res = pd.concat([res, splits], axis=0, ignore_index=True)
+ 
 
         else:
-            fd_df_equities = fd_df[(fd_df["Option Type"].isna())]
-            fd_df_equities_no_split = fd_df_equities[fd_df_equities["Split"] == False]
-            res = pd.merge(
-                df_fd,
+            fd_df_equities = fd_df[(fd_df["Option Type"].isna())]                  # get rows that have option type missing
+            fd_df_equities_no_split = fd_df_equities[fd_df_equities["Split"] == False]      # get rows that have split == false
+            res = pd.merge(                                                             # merge the two dataframes based on symbol, action, size
+                df_fd,  
                 fd_df_equities_no_split,
                 on=["Symbol", "Action", "Size"],
                 how="outer",
                 suffixes=(None, "_y"),
             )
-            res[["Broker Executed", "Price", "Dollar Amt", "Split"]] = res[
-                ["Broker Executed_y", "Price_y", "Dollar Amt_y", "Split_y"]
+
+            # SEE IF THIS WORKS FOR NEW BROKER EXECUTED TIMES
+            # res[["Broker Executed", "Price", "Dollar Amt", "Split"]] = res[
+            #     ["Broker Executed_y", "Price_y", "Dollar Amt_y", "Split_y"]
+            # ]
+            res[["Price", "Dollar Amt", "Split"]] = res[                    # keeping regular Broker Executed
+                ["Price_y", "Dollar Amt_y", "Split_y"]
             ]
+            res.to_csv(BASE_PATH / f"reports/tests/res.csv", index=False)
+            df_fd.to_csv(BASE_PATH / f"reports/tests/df_fd.csv", index=False)
+            fd_df.to_csv(BASE_PATH / f"reports/tests/fd_df.csv", index=False)
+            
+
             res = res.drop(
                 columns=[
-                    "Broker Executed_y",
+                    "Broker Executed_y",                  
                     "Price_y",
                     "Dollar Amt_y",
                     "Split_y",

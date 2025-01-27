@@ -27,7 +27,7 @@ class MarketData:
         global SIGNED_IN
         if SIGNED_IN:
             return
-        Robinhood.login_custom("RH2")
+        Robinhood.login_custom("RH")
         SIGNED_IN = True
 
     @staticmethod

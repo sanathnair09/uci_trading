@@ -35,7 +35,7 @@ class PostProcessing:
         self._login()
 
     def _login(self) -> None:
-        Robinhood.login_custom(account="RH2")
+        Robinhood.login_custom(account="RH")
         self._brokers = {
             "E2": ETrade(Path(""), BrokerNames.E2),
         }
@@ -51,9 +51,22 @@ class PostProcessing:
             df["Program Submitted"], format="%X:%f"
         )
         df["Program Executed"] = pd.to_datetime(df["Program Executed"], format="%X:%f")
+
+        # reformat fidelity broker executed times - done to change broker executed time to before we press submit
+        df.loc[df["Broker"] == "FD", "Broker Executed"] = (
+            df.loc[df["Broker"] == "FD", "Broker Executed"]
+                .str.split(":", n=3).str[:3].str.join(":"))
+        
+        df.loc[df["Broker"] == "IF", "Broker Executed"] = (
+            df.loc[df["Broker"] == "IF", "Broker Executed"]
+                .str.split(":", n=3).str[:3].str.join(":"))
+        
+        # df.to_csv(BASE_PATH / f"reports/tests/before_modifying_broker_executed.csv", index=False)
+    
         df["Broker Executed"] = pd.to_datetime(
             df["Broker Executed"], format="%X", errors="coerce"
         )
+        
         if option:
             df["Dollar Amt"] = np.nan
 
@@ -129,13 +142,21 @@ class PostProcessing:
         formatted_date = create_datetime_from_string(report_file)
         ibkr_df, fidelity_df, schwab_df = self._get_broker_data(formatted_date)
 
+        
         df = self._read_report(report_file, option)
-
-        if not option:
-            df = combine_ibkr_data(df, ibkr_df)
+        
+        # df.to_csv(BASE_PATH / f"reports/tests/before_ibkr.csv", index=False)
+        if option:
+            df = combine_ibkr_data(df, option)
+        # df.to_csv(BASE_PATH / f"reports/tests/after_ibkr.csv", index=False)
 
         df = combine_schwab_data(df, schwab_df, option)
+        
+
+        # if there's no fidelity data, this will raise an exception
         df = combine_fidelity_data(df, fidelity_df, option)
+
+
         df = self._combine_etrade_data(df, option)
         df = combine_robinhood_data(df, option)
 

@@ -49,6 +49,7 @@ def convert_to_float(string: str) -> Optional[float]:
 
 def process_option_input() -> list[OptionOrder]:
     """
+    Will Process the options that we enter
     input format should follow: SYM-Call/Put-STRIKE-MM/DD/YYYY,(next option),...
     """
     temp = input("Enter option list to trade for today: ")

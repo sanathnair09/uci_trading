@@ -15,7 +15,7 @@ class CustomChromeInstance:
     @staticmethod
     def createInstance() -> webdriver.Chrome:
         options = webdriver.ChromeOptions()
-
+        
         options.add_argument("--start-maximized")
         # Adding argument to disable the AutomationControlled flag
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -105,5 +105,7 @@ class CustomChromeInstance:
 
 
 if __name__ == "__main__":
-    c = CustomChromeInstance(undetected=True)
+    c = CustomChromeInstance(undetected=False)
+    print(f"ChromeDriver path: {c._driver.service._path}")
     c.open("https://www.google.com")
+    input()

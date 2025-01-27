@@ -68,7 +68,7 @@ class OptionData(StockData):
 NULL_STOCK_DATA = StockData("", "", "", "")  # type: ignore
 NULL_OPTION_DATA = OptionData("", "", "", "", "", "", "", "", "", "", "", "")  # type: ignore
 
-
+# add field for new column and in str function
 @dataclass
 class ReportEntry:
     program_submitted: str  # time before placing order
@@ -91,7 +91,7 @@ class ReportEntry:
     def __str__(self) -> str:
         return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.broker.value},{self.action.value},{self.quantity},{self.price},{(self.dollar_amt)},{format_quote_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.split},{self.order_id},{self.activity_id},{self.destination}\n"
 
-
+# add field for new column and in str function
 @dataclass
 class OptionReportEntry:
     program_submitted: str  # time before placing order
@@ -115,6 +115,20 @@ class OptionReportEntry:
     def __str__(self) -> str:
         return f"{datetime.now().strftime('%x')},{self.program_submitted},{self.program_executed},{self.broker_executed},{self.sym},{self.strike},{self.option_type.value[0].upper()},{self.expiration},{self.quantify},{self.broker.value},{self.action.value},{self.price},{format_option_data(self.pre_stock_data, self.post_stock_data)},{self.order_type.value},{self.venue},{self.order_id},{self.activity_id}\n"
 
+@dataclass
+class TwentyFourReportEntry:
+    date: str
+    program_submitted: str
+    broker_executed: Optional[str]  # time executed according to broker info
+    sym: str  # symbol
+    broker: str
+    action: str  # Buy or Sell
+    quantity: int
+    price: Optional[float]  # price of a share when bought/sold
+    spread: float
+
+    def __str__(self) -> str:
+        return f"{self.date},{self.program_submitted},{self.broker_executed},{self.sym},{self.action},{self.quantity},{self.broker},{self.price},{self.spread}\n"
 
 def format_quote_data(pre: StockData, post: StockData) -> str:
     return f"{pre.quote},{post.quote},{pre.bid},{pre.ask},{post.bid},{post.ask},{pre.volume},{post.volume}"

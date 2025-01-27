@@ -18,7 +18,7 @@ from utils.report.report import (
     BrokerNames,
 )
 
-
+# add columns here as well
 NULL_ENTRY = pd.Series(
     index=[
         "Date",
@@ -78,7 +78,8 @@ class OptionOrder:
         """
         needed to allow conversion: OptionOrder <-> file
         """
-        return f"{self.sym}-{self.option_type.value}-{self.strike}-{self.formatted_expiration()}"
+        # return f"{self.sym}-{self.option_type.value}-{self.strike}-{self.formatted_expiration()}"
+        return f"{self.sym}-{self.option_type}-{self.strike}-{self.formatted_expiration()}"
 
 
 class Broker(ABC):
@@ -124,6 +125,7 @@ class Broker(ABC):
         if self._option_report_file:
             with self._option_report_file.open("a") as file:
                 for report in self._executed_option_trades:
+                    # print(f"Adding to to report: {report.broker}")
                     file.write(str(report))
 
         self._executed_option_trades.clear()

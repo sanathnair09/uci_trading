@@ -15,7 +15,7 @@ SYM_LIST = [
     "CRS", "CDNA", "CTMX", "SIX", "ICAD", "VKTX", "MODN", "CHCI", "FHN", "RBCAA",
     "PFMT", "QUAD", "NNBR", "TSLA", "LASE", "APLS", "BYNO", "SCKT", "AVO", "TRIP",
     "MMI", "EDUC", "ICCC", "PTLO", "KNDI", "GS", "OXM", "ANIP", "BCC",  # removed "WH" 2/15/24
-    "NEON", "NTAP", "PXLW", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW",
+    "NEON", "NTAP", "NOV", "AAPL", "HEI", "AWR", "CFFS", "OLMA", "MCW", # removed "PXLW" 9/19/24
     "XOM", "GOOG", "SPY", "CVCO", "AMP", "LXRX", "NOTV", "RMTI", "MSFT", "VNDA",
     "NXTC", "EW", "ADRT", "CAL", "GIS", "NVDA", "GLT", "GBCI", "RCKT", "HONE",
     "AMPS", "OKE", "ALXO", "PFIS", "WMPN", "SXI", "CVLT", "WRB", "FRBA", "DCTH",
@@ -30,6 +30,7 @@ SYM_LIST = [
 
 SYM_LIST_LEN = len(SYM_LIST)
 
+# add new columns here; do it in these files: program_manager.py, broker.py, report.py
 REPORT_COLUMNS = [
     'Date', 'Program Submitted', 'Program Executed', 'Broker Executed', 'Symbol',
     'Broker', 'Action', 'Size', 'Price', 'Dollar Amt', 'Pre Quote', 'Post Quote',
@@ -46,6 +47,8 @@ OPTION_REPORT_COLUMNS = [
     "Pre Underlying Price", "Post Underlying Price", "Pre In The Money", "Post In The Money",
     'Order Type', "Venue", 'Order ID', 'Activity ID'
     ]
+
+
 
 
 # fmt: on
