@@ -126,9 +126,12 @@ class TwentyFourReportEntry:
     quantity: int
     price: Optional[float]  # price of a share when bought/sold
     spread: float
+    ask: float
+    bid: float
+    limit_price: float
 
     def __str__(self) -> str:
-        return f"{self.date},{self.program_submitted},{self.broker_executed},{self.sym},{self.action},{self.quantity},{self.broker},{self.price},{self.spread}\n"
+        return f"{self.date},{self.program_submitted},{self.broker_executed},{self.sym},{self.action},{self.quantity},{self.broker},{self.price},{self.spread},{self.ask},{self.bid},{self.limit_price} \n"
 
 def format_quote_data(pre: StockData, post: StockData) -> str:
     return f"{pre.quote},{post.quote},{pre.bid},{pre.ask},{post.bid},{post.ask},{pre.volume},{post.volume}"
