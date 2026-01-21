@@ -14,7 +14,8 @@ from brokers import BASE_PATH
 
 from brokers import (
     BASE_PATH,
-    Robinhood,
+    # Robinhood,
+    Robinhood2,
     Fidelity,
     ETrade,
     Schwab,
@@ -50,7 +51,7 @@ FRAC_BROKERS = ["FD"]
 OPTN_BROKERS = ["RH", "E2", "FD", "SB", "IF", "VD"]
 
 TWENTY_FOUR_REPORT_COLUMNS = [
-    'Date', 'Program Submitted', 'Broker Executed', 'Symbol', 'Action', 'Size', 'Broker', 'Price', 'Spread'
+    'Date', 'Program Submitted', 'Broker Executed', 'Symbol', 'Action', 'Size', 'Broker', 'Price', 'Spread', 'Ask Price', 'Bid_Price', 'Limit_Price'
     ]
 
 
@@ -72,31 +73,40 @@ class TwentyFourHourTrading:
             # Fidelity(report_file, BrokerNames.FD, option_report_file),
             # ETrade(report_file, BrokerNames.E2, option_report_file),
             # Schwab(report_file, BrokerNames.SB, option_report_file),
-            Robinhood(report_file, BrokerNames.RH, option_report_file),
+            Robinhood2(report_file, BrokerNames.RH, option_report_file),
             # Vanguard(report_file, BrokerNames.VD, option_report_file),          # Vanguard only for options
         ]
 
         self.create_report_file()
 
-        self.group_one = ['AMZN', 'BBY', 'KLAC']
-        self.group_two = ['GPC', 'AAPL', 'HE', 'SPOT']
-        self.group_three = ['DYN', 'RELY', 'FBTC']
-        self.group_four = ['EOG', 'NCLH', 'HES']
-        self.group_five = ['VZ', 'EQT', 'GME']
-        self.group_six = ['LUV', 'YINN', 'NVDA', 'ASO']
-        # self.group_seven = ['LUV', 'YINN']
-        # self.group_eight = ['NVDA', 'SPOT']
-        # self.group_nine = ['GME', 'ASO']
+        # Old groups when we were using 6:
+        # self.group_one = ['AMZN', 'BBY', 'AXP']
+        # self.group_two = ['GPC', 'AAPL', 'HE', 'NTES']
+        # self.group_three = ['CPB', 'CUBE', 'FBTC']
+        # self.group_four = ['EOG', 'NCLH', 'HES', 'QQQ']
+        # self.group_five = ['VZ', 'EQT', 'GME']
+        # self.group_six = ['LUV', 'YINN', 'NVDA', 'ASO']
 
         # self._symbol_list = [self.group_one, self.group_two, self.group_three,
-        #                      self.group_four, self.group_five, self.group_six, 
-        #                      self.group_seven, self.group_eight, self.group_nine]
-        
+        #         self.group_four, self.group_five, self.group_six]
+
+        self.group_one = ['HE', 'EOG']
+        self.group_two = ['LUV', 'HES', 'NTES']
+        self.group_three = ['GPC', 'NVDA']
+        self.group_four = ['NCLH', 'CUBE', 'VZ']
+        self.group_five = ['AAPL', 'SPY', 'YINN']
+        self.group_six = ['ASO', 'AMZN', 'GME']
+        self.group_seven = ['QQQ', 'CPB']
+        self.group_eight = ['EQT', 'FBTC']
+        self.group_nine = ['AXP', 'BBY']
+
         self._symbol_list = [self.group_one, self.group_two, self.group_three,
-                        self.group_four, self.group_five, self.group_six]
+                             self.group_four, self.group_five, self.group_six, 
+                             self.group_seven, self.group_eight, self.group_nine]
         
 
         self._login_all()
+
 
     def _login_all(self) -> None:
         for broker in self._brokers:
@@ -132,6 +142,7 @@ class TwentyFourHourTrading:
         group_assignment = self._24_hour_manager.get("GROUP_ASSIGNMENT")
 
         # increment all group numbers
+        # CHANGE BACK TO 9 WHEN YOU GO BACK TO 9 GROUPS
         for i in range(len(group_assignment)):
             if group_assignment[i] == 9:
                 group_assignment[i] = 1
@@ -192,22 +203,29 @@ class TwentyFourHourTrading:
     def _schedule(self) -> None:
         logger.info("Scheduling Times")
 
+        # trade_all_symbols_times = ["12:30", "12:50", "13:10", "14:10", "15:10", "16:10", "16:50",
+        #                            "17:10", "18:10", "19:10", "20:10", "21:10", "22:10", "23:10",
+        #                            "00:10", "00:40", "01:10", "02:10", "03:10", "04:10", "04:50",
+        #                            "05:10","06:10", "06:40", "07:00"]
+        
+        # adding 6:20 AM EST as a time to investigate RH missing all the 6:10 AM trades
         trade_all_symbols_times = ["12:30", "12:50", "13:10", "14:10", "15:10", "16:10", "16:50",
-                                   "17:10", "18:10", "19:10", "20:10", "21:10", "22:10", "23:10",
-                                   "00:10", "00:50", "01:10", "02:10", "03:10", "04:10", "04:50",
-                                   "05:10","06:10", "06:40", "07:00"]
+                            "17:10", "18:10", "19:10", "20:10", "21:10", "22:10", "23:10",
+                            "00:10", "00:40", "01:10", "02:10", "03:05", "03:10", "04:10", "04:50",
+                            "05:10","06:10", "06:40", "07:00"]
 
         # schedule trades that sell all symbols
         for i, time in enumerate(trade_all_symbols_times):
             schedule.every().day.at(time).do(self.trade_symbols_across_brokers, sym_list=self._symbol_list, index=i)
 
-
+        # self._brokers[0].buy_and_sell_immediately("MA")
         # schedule the sell leftovers method for ibkr every 2 minutes
-        # schedule.every(2).minutes.do(self._brokers[0].sell_later_filled_orders)
+        # schedule.every(1).minutes.do(self._brokers[0].sell_later_filled_orders)
 
         # schedule creation of report file and shuffling of symbols
         schedule.every().day.at("00:01").do(self.create_report_file)
-        # schedule.every().day.at("12:29").do(self.shift_groups)          # at 12:25, shift the group assignments
+        schedule.every().day.at("07:00").do(self.sell_leftover_positions_across_brokers)
+        schedule.every().day.at("12:29:45").do(self.shift_groups)          # at 12:25, shift the group assignments
 
         logger.info("Done scheduling")
 
@@ -241,23 +259,70 @@ class TwentyFourHourTrading:
         if current_day == 4 and datetime.now().time() > time(17, 0):
             return
 
+        logger.info(f"\n\nCurrently Group {group_index}: {curr_sym_list}")
+
+        # change sym list to have (sym, quantity)
+        # update sym list to add the stocks whos quantity will be greater than 1
+        # then execute those trades
+        # will have to modify our functions slightly
+
         # execute trades
         for sym in curr_sym_list:
-            for broker in self._brokers:
+            for broker in random.sample(self._brokers, len(self._brokers)):
                 try:
                     broker.buy_and_sell_immediately(sym)
                     # broker.buy_and_sell_immediately('AMZN')
                 except Exception as e:
-                    logger.info(f"Error trading {sym} on {broker._broker_name}")
+                    logger.error(f"Error trading {sym} on {broker._broker_name}")
+                    # add line to add rejected order to report here ?
                     logger.error(e)
+                    
+
+        # Added this line just in case order gets immediately filled on ibkr
+        # try:
+        #     self._brokers[0].sell_later_filled_orders()
+        # except Exception as e:
+        #     logger.error(f"Error selling leftovers on IBKR")
 
 
         # logger message
         logger.info("DONE BUYING AND SELLING")
-        # logger.info(f"Bought and Sold group {self._symbol_list.index(curr_sym_list) + 1} symbols: {curr_sym_list}")
 
 
+    '''
+    Sells any open positions across all brokers
+    '''
+    def sell_leftover_positions_across_brokers(self):
+        
+
+        # broker[0].sell_24_hour_leftover_positions()
+
+        # VERIFY THIS WORKS!
+        for broker in self._brokers:
+            try:
+                broker.sell_24_hour_leftover_positions()
+                # positions, option_position = broker.get_current_positions()
+                # if len(positions) == 0:
+                #     continue
+
+                # # if (type(positions[0]) == StockOrder):
+                # #     positions = [order.sym for order in positions]
+
+                # print(broker.name(), str(positions))
+
+                # for stock_order in positions:
+                #     broker.sell_limit(stock_order)
+
+
+            except Exception as e:
+                logger.error(e)
+
+        logger.info("Sold leftovers on all brokers")
+        return
     
+
+
+
     ''' 
     Sells any leftover positions
     Not sure how this will work with old script?
@@ -316,8 +381,15 @@ class TwentyFourHourTrading:
 
 if __name__ == "__main__":
     trader = TwentyFourHourTrading()
+
+    trade_all_symbols_times = ["12:30", "12:50", "13:10", "14:10", "15:10", "16:10", "16:50",
+                    "17:10", "18:10", "19:10", "20:10", "21:10", "22:10", "23:10",
+                    "00:10", "00:40", "01:10", "02:10", "03:05", "03:10", "04:10", "04:50",
+                    "05:10","06:10", "06:40", "07:00"]
+    
     # trader.shift_groups()
     trader.start()
+    # trader.sell_leftover_positions_across_brokers()
 
 
     # trader._split_symbols()
