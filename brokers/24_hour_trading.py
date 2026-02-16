@@ -91,11 +91,11 @@ class TwentyFourHourTrading:
         #         self.group_four, self.group_five, self.group_six]
 
         self.group_one = ['HE', 'EOG']
-        self.group_two = ['LUV', 'HES', 'NTES']
+        self.group_two = ['LUV', 'ADP', 'NTES']
         self.group_three = ['GPC', 'NVDA']
         self.group_four = ['NCLH', 'CUBE', 'VZ']
-        self.group_five = ['AAPL', 'SPY', 'YINN']
-        self.group_six = ['ASO', 'AMZN', 'GME']
+        self.group_five = ['AAPL', 'SPY', 'AMAT']
+        self.group_six = ['CE', 'AMZN', 'GME']
         self.group_seven = ['QQQ', 'CPB']
         self.group_eight = ['EQT', 'FBTC']
         self.group_nine = ['AXP', 'BBY']
@@ -224,7 +224,7 @@ class TwentyFourHourTrading:
 
         # schedule creation of report file and shuffling of symbols
         schedule.every().day.at("00:01").do(self.create_report_file)
-        schedule.every().day.at("07:00").do(self.sell_leftover_positions_across_brokers)
+        # schedule.every().day.at("07:00").do(self.sell_leftover_positions_across_brokers)
         schedule.every().day.at("12:29:45").do(self.shift_groups)          # at 12:25, shift the group assignments
 
         logger.info("Done scheduling")
