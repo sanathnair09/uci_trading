@@ -6,6 +6,7 @@ import time
 from typing import Any, Optional, Union, cast
 from zoneinfo import ZoneInfo
 import traceback
+from httpcore import TimeoutException
 import schedule
 import sys
 import re
@@ -33,6 +34,8 @@ from utils.report.report import (
 from utils.util import parse_option_string
 from utils.selenium_helper import CustomChromeInstance
 from utils.util import convert_date
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class Robinhood2(Broker):
@@ -594,20 +597,15 @@ class Robinhood2(Broker):
     def buy_and_sell_immediately(self, symbol):
         
         buy_program_submitted = datetime.now().strftime("%I:%M:%S %p")
-        # ask_price = self.get_ask_price_web(symbol)
-        # buy_limit_price = round(ask_price * 1.02, 2)
-        # self.buy_limit_web(symbol, ask_price)
-
-        # what if we extract the ask / bid while we are buying and selling, so that we save time?
         ask_price, buy_limit_price = self.buy_limit_web(symbol)
         logger.info(f"Bought {symbol} on Robinhood")
 
         sell_program_submitted = datetime.now().strftime("%I:%M:%S %p")
-        # bid_price = self.get_bid_price_web(symbol)
-        # sell_limit_price = round(bid_price * 0.98, 2)
         bid_price, sell_limit_price = self.sell_limit_web(symbol)
         logger.info(f"Sold {symbol} on Robinhood")
 
+
+        # input("Done with buy and sell on Robinhood, press enter to add to report")
         self.add_to_24_hour_report_web(
             symbol=symbol, 
             buy_submitted_time=buy_program_submitted, 
@@ -789,8 +787,16 @@ class Robinhood2(Broker):
         time.sleep(4)
 
         # Flip to Sell tab if it's a sell order
-        sell_tab = self._chrome_inst.find(By.XPATH, "//div[@data-testid='OrderFormHeading-Sell']")
-        sell_tab.click()
+        wait = WebDriverWait(self._chrome_inst._driver, 10)
+
+        try:
+            sell_tab = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@data-testid='OrderFormHeading-Sell']")))
+            sell_tab.click()
+        except TimeoutException:
+            logger.info("Flip to sell tab not clickable, likely order got rejected. Moving on.")
+            return (None, None)
+        # sell_tab = self._chrome_inst.find(By.XPATH, "//div[@data-testid='OrderFormHeading-Sell']")
+        # sell_tab.click()
         time.sleep(1)
 
         bid_price, limit_price = self.put_in_order_web(market_hours_flag, "SELL")
@@ -882,15 +888,22 @@ class Robinhood2(Broker):
         # Click Review Order Button
         review_order_button = self._chrome_inst.find(By.XPATH, "//button[@data-testid='OrderFormControls-Review']")
         review_order_button.click()
-        time.sleep(2)
+        time.sleep(4)
         # input("Review order clicked?")
 
         # Click buy button to submit order
-        buy_button = self._chrome_inst.find(By.XPATH, "//button[@data-testid='OrderFormControls-Submit']")
-        buy_button.click()
+        wait = WebDriverWait(self._chrome_inst._driver, 10)
+
+        try:
+            buy_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@data-testid='OrderFormControls-Submit']")))
+            buy_button.click()
+        except TimeoutException:
+            logger.info("Buy/Sell button not clickable, likely order got rejected. Moving on.")
+            return (None, None)
+        # buy_button = self._chrome_inst.find(By.XPATH, "//button[@data-testid='OrderFormControls-Submit']")
         time.sleep(1)
 
-        # LAST ERROR WAS AN UNPACKING ERROR RIGHT HERE
+        # input("Order go through?")
         return (ask_price, limit_price) if action == "BUY" else (bid_price, limit_price)
     
 # =================================================================================================================
@@ -1206,17 +1219,31 @@ class Robinhood2(Broker):
 
 
 
+
+
+
 if __name__ == "__main__":
 
     rh2 = Robinhood2(Path("temp.csv"), BrokerNames.RH, Path("temp_option.csv"))
     rh2.login()
+    # print(sys.path)
 
-    # rh2.buy_and_sell_immediately("AMZN")
+    rh2.buy_and_sell_immediately("SNAP")
+    # input("Successful?")
+
+    # rh2.buy_and_sell_immediately("GOOG")
+    # input("Successful?")
+
+    # rh2.buy_and_sell_immediately("TSLA")
+    # input("Successful?")
+
+    # rh2.buy_and_sell_immediately("V")
+    # input("Successful?")
     # rh2.get_price_and_execution_time_web()
 
     
 
-    rh2.sell_limit_web("AMZN")
+    # rh2.sell_limit_web("AMZN")
 
     # rh2.add_to_24_hour_report_web()
 
