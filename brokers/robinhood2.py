@@ -595,10 +595,20 @@ class Robinhood2(Broker):
     (for web version, api version is commented out below)
     '''
     def buy_and_sell_immediately(self, symbol):
+
+
+        ask, bid = self.get_ask_and_bid_price_web(symbol)
+        average_of_bid_ask = (ask + bid) / 2
+        if (bid - ask) / average_of_bid_ask > 0.2:
+            logger.info(f"Bid ask spread too high for {symbol}, skipping buy/sell")
+            return
         
+
+
         buy_program_submitted = datetime.now().strftime("%I:%M:%S %p")
         ask_price, buy_limit_price = self.buy_limit_web(symbol)
         logger.info(f"Bought {symbol} on Robinhood")
+
 
         sell_program_submitted = datetime.now().strftime("%I:%M:%S %p")
         bid_price, sell_limit_price = self.sell_limit_web(symbol)
@@ -735,7 +745,6 @@ class Robinhood2(Broker):
     def buy_limit_web(self, symbol):
 
         market_hours_flag = self.get_correct_market_flag()
-        # limit_price = round(ask_price * 1.02, 2)
 
         # Open Individual Stock Page
         self._chrome_inst.open(f"https://robinhood.com/stocks/{symbol}?source=search")
@@ -870,10 +879,11 @@ class Robinhood2(Broker):
         # input("Done setting shares")
 
         # Click trading hours tab
-        trading_hours_dropdown = self._chrome_inst.find(By.XPATH, "//button[.//span[normalize-space()='Market Hours']]")
+        # CHANGING to get first button after trading hours label
+        trading_hours_dropdown = self._chrome_inst.find(By.XPATH, '//label[text()="Trading Hours"]/following::button[@role="combobox"][1]')
         trading_hours_dropdown.click()
         time.sleep(0.5)
-        # input("Dropdown open?")
+        input("Dropdown open?")
 
         # Select proper trading hours
         if market_hours_flag == "extended_hours":
@@ -1146,6 +1156,30 @@ class Robinhood2(Broker):
 
 # =================================================================================================================
 
+    def get_ask_and_bid_price_web(self, symbol):
+        # Open Individual Stock Page
+        self._chrome_inst.open(f"https://robinhood.com/stocks/{symbol}?source=search")
+        time.sleep(4)
+
+        # Open Order type dropdown
+        order_type_dropdown = self._chrome_inst.find(By.XPATH, '//*[@id="downshift-1-toggle-button"]')
+        order_type_dropdown.click()
+        time.sleep(1)
+
+
+        # Click Limit Order Tab
+        limit_order_tab = self._chrome_inst.find(By.XPATH, "//li[.//span[normalize-space()='Limit order']]")
+        limit_order_tab.click()
+        time.sleep(1)
+
+        # Get ask and bid
+        ask = self.get_ask_price_web()
+        bid = self.get_bid_price_web()
+        return ask, bid
+        
+        return float(ask), float(bid)
+    
+    
     # def get_ask_price_web(self, symbol):
     def get_ask_price_web(self):
         # Open Individual Stock Page
@@ -1226,10 +1260,17 @@ if __name__ == "__main__":
 
     rh2 = Robinhood2(Path("temp.csv"), BrokerNames.RH, Path("temp_option.csv"))
     rh2.login()
+    # print(rh2.get_correct_market_flag())
+
+    # input()
+    # ask = rh2.get_ask_price_web()
+    # print(f"Ask: {ask}")
+    # bid = rh2.get_bid_price_web()
+    # print(f"Bid: {bid}")
     # print(sys.path)
 
     rh2.buy_and_sell_immediately("SNAP")
-    # input("Successful?")
+    input("Successful?")
 
     # rh2.buy_and_sell_immediately("GOOG")
     # input("Successful?")
