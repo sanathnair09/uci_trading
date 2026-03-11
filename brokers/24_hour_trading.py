@@ -209,10 +209,17 @@ class TwentyFourHourTrading:
         #                            "05:10","06:10", "06:40", "07:00"]
         
         # adding 6:20 AM EST as a time to investigate RH missing all the 6:10 AM trades
-        trade_all_symbols_times = ["12:30", "12:50", "13:10", "14:10", "15:10", "16:10", "16:50",
+        trade_all_symbols_times = ["12:30", "13:10", "14:10", "15:10", "16:10", "16:50",
                             "17:10", "18:10", "19:10", "20:10", "21:10", "22:10", "23:10",
-                            "00:10", "00:40", "01:10", "02:10", "03:05", "03:10", "04:10", "04:50",
+                            "00:10", "00:40", "01:10", "02:10", "03:05", "03:10", "3:50", "04:10",
                             "05:10","06:10", "06:40", "07:00"]
+        
+    #     group_assignments = 
+    #     [6, 6, 7, 8, 9, 1,
+    #                         1, 2, 3, 4, 5, 6, 7,
+    #                         8, 9, 9, 1, 2, 2, 3, 3,
+    #                         4, 5, 5, 5
+    # ]
 
         # schedule trades that sell all symbols
         for i, time in enumerate(trade_all_symbols_times):
