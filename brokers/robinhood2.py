@@ -880,10 +880,10 @@ class Robinhood2(Broker):
 
         # Click trading hours tab
         # CHANGING to get first button after trading hours label
-        trading_hours_dropdown = self._chrome_inst.find(By.XPATH, '//label[text()="Trading Hours"]/following::button[@role="combobox"][1]')
+        trading_hours_dropdown = self._chrome_inst.find(By.XPATH, '//label[text()="Trading hours"]/following::button[@role="combobox"][1]')
         trading_hours_dropdown.click()
         time.sleep(0.5)
-        input("Dropdown open?")
+        # input("Dropdown open?")
 
         # Select proper trading hours
         if market_hours_flag == "extended_hours":
@@ -1260,7 +1260,9 @@ if __name__ == "__main__":
 
     rh2 = Robinhood2(Path("temp.csv"), BrokerNames.RH, Path("temp_option.csv"))
     rh2.login()
+
     # print(rh2.get_correct_market_flag())
+    # print(rh2.get_price_and_execution_time_web())
 
     # input()
     # ask = rh2.get_ask_price_web()
@@ -1269,8 +1271,8 @@ if __name__ == "__main__":
     # print(f"Bid: {bid}")
     # print(sys.path)
 
-    rh2.buy_and_sell_immediately("SNAP")
-    input("Successful?")
+    # rh2.buy_and_sell_immediately("SNAP")
+    # input("Successful?")
 
     # rh2.buy_and_sell_immediately("GOOG")
     # input("Successful?")
