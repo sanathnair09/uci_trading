@@ -887,10 +887,13 @@ class Robinhood2(Broker):
 
         # Select proper trading hours
         if market_hours_flag == "extended_hours":
-            trading_hours_tab = self._chrome_inst.find(By.XPATH, "//li[@role='option' and .//span[normalize-space()='Extended Hours']]")
+            trading_hours_tab = self._chrome_inst.find(By.XPATH, "//li[@role='option' and .//span[normalize-space()='Extended hours']]")
             trading_hours_tab.click()
         elif market_hours_flag == "all_day_hours":
-            trading_hours_tab = self._chrome_inst.find(By.XPATH, "//li[@role='option' and .//span[normalize-space()='24 Hour Market']]")
+            trading_hours_tab = self._chrome_inst.find(By.XPATH, "//li[@role='option' and .//span[normalize-space()='24 hour market']]")
+            trading_hours_tab.click()
+        elif market_hours_flag == "regular_hours":
+            trading_hours_tab = self._chrome_inst.find(By.XPATH, "//li[@role='option' and .//span[normalize-space()='Market hours']]")
             trading_hours_tab.click()
         time.sleep(0.5)
         # input("Correct hours selected?")
@@ -979,7 +982,7 @@ class Robinhood2(Broker):
         self._chrome_inst.open(f"https://robinhood.com/account/history")
         time.sleep(4)
 
-        items = self._chrome_inst._driver.find_elements(By.XPATH, "//div[@data-testid='activity-item']")
+        items = self._chrome_inst._driver.find_elements(By.XPATH, "(//*[normalize-space()='Recent']/following::div[@data-testid='activity-item'])[position() <= 2]")
         sell_price = None
         sell_executed_time = None
         buy_price = None
