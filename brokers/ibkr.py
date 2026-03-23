@@ -654,6 +654,14 @@ class IBKR(Broker):
         #     logger.error("Exception Caught on IBKR:")
         #     logger.error(e)
 
+        pacific_tz = ZoneInfo("US/Pacific")
+        now = datetime.now(pacific_tz).time()
+        start_time = datetime.strptime("01:00", "%H:%M").time()
+        end_time = datetime.strptime("07:10", "%H:%M").time()
+        
+        # IF TIME IS NOT BETWEEN 1:00 AM and 7:10 AM, DO NOT TRADE
+        if not start_time <= now <= end_time:
+            return
 
         try:
             buy_program_submitted = datetime.now().strftime("%I:%M:%S %p")
